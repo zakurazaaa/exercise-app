@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadIndex, loadDetailsMap, uniqueValues, mediaUrl } from "./data";
 import { translateSteps } from "./translate";
 import { useFavorites } from "./favorites";
-import { useRoutine } from "./routine";
+import { usePrograms } from "./routine";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
 import "./App.css";
@@ -45,7 +45,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
 
   const fav = useFavorites();
-  const routine = useRoutine();
+  const programs = usePrograms();
 
   const thaiName = (name) => nameMap[name] || thName(name);
 
@@ -109,7 +109,7 @@ export default function App() {
   };
 
   const activeCatLabel = CATEGORIES.find((c) => c.key === category)?.label;
-  const routineItems = routine.ids.map((id) => byId[id]).filter(Boolean);
+  const activeItems = (programs.active?.ids || []).map((id) => byId[id]).filter(Boolean);
 
   return (
     <div className="app">
@@ -126,7 +126,7 @@ export default function App() {
             🗂️ หมวดหมู่
           </button>
           <button className={"nav-btn" + (view === "program" ? " nav-active" : "")} onClick={() => setView("program")}>
-            📋 โปรแกรม ({routine.count})
+            📋 โปรแกรม ({programs.programCount})
           </button>
         </div>
       </header>
@@ -148,9 +148,9 @@ export default function App() {
 
       {status === "ready" && view === "program" && (
         <ProgramView
-          items={routineItems}
+          items={activeItems}
           thaiName={thaiName}
-          routine={routine}
+          programs={programs}
           onOpen={setSelected}
         />
       )}
@@ -202,10 +202,10 @@ export default function App() {
                 ex={ex}
                 thai={thaiName(ex.name)}
                 fav={fav.isFav(ex.id)}
-                inRoutine={routine.inRoutine(ex.id)}
+                inRoutine={programs.inActive(ex.id)}
                 onOpen={() => setSelected(ex)}
                 onToggleFav={() => fav.toggle(ex.id)}
-                onToggleRoutine={() => routine.toggle(ex.id)}
+                onToggleRoutine={() => programs.toggle(ex.id)}
               />
             ))}
           </div>
@@ -224,18 +224,10 @@ export default function App() {
           onClose={() => setSelected(null)}
           isFav={fav.isFav(selected.id)}
           onToggleFav={() => fav.toggle(selected.id)}
-          inRoutine={routine.inRoutine(selected.id)}
-          onToggleRoutine={() => routine.toggle(selected.id)}
+          inRoutine={programs.inActive(selected.id)}
+          onToggleRoutine={() => programs.toggle(selected.id)}
         />
       )}
-
-      <footer className="footer">
-        ข้อมูลจาก{" "}
-        <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noreferrer">
-          hasaneyldrm/exercises-dataset
-        </a>{" "}
-        · เพื่อการศึกษาเท่านั้น
-      </footer>
     </div>
   );
 }
@@ -272,38 +264,82 @@ function Card({ ex, thai, fav, inRoutine, onOpen, onToggleFav, onToggleRoutine }
   );
 }
 
-function ProgramView({ items, thaiName, routine, onOpen }) {
-  if (items.length === 0) {
-    return (
-      <div className="empty">
-        <p className="state">📋 ยังไม่มีท่าในโปรแกรม</p>
-        <p className="state">ไปที่หน้า "ค้นหา" แล้วกดปุ่ม ＋ ที่การ์ดเพื่อเพิ่มท่าเข้าโปรแกรมของคุณ</p>
-      </div>
-    );
-  }
+function ProgramView({ items, thaiName, programs, onOpen }) {
+  const { active } = programs;
+
+  const handleCreate = () => {
+    const name = window.prompt("ตั้งชื่อโปรแกรมใหม่ (เช่น Upper Body วันจันทร์)", "");
+    if (name && name.trim()) programs.create(name.trim());
+  };
+  const handleRename = () => {
+    if (!active) return;
+    const name = window.prompt("เปลี่ยนชื่อโปรแกรม", active.name);
+    if (name && name.trim()) programs.rename(active.id, name.trim());
+  };
+  const handleDelete = () => {
+    if (!active) return;
+    if (window.confirm(`ลบโปรแกรม "${active.name}"?`)) programs.removeProgram(active.id);
+  };
+
   return (
     <div>
-      <div className="program-head">
-        <p className="count">โปรแกรมของฉัน · {items.length} ท่า</p>
-        <button className="reset" onClick={routine.clear}>ล้างทั้งหมด</button>
-      </div>
-      <ol className="program-list">
-        {items.map((ex, i) => (
-          <li key={ex.id} className="program-item">
-            <span className="program-no">{i + 1}</span>
-            <img className="program-thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} onClick={() => onOpen(ex)} />
-            <div className="program-info" onClick={() => onOpen(ex)}>
-              <strong>{thaiName(ex.name)}</strong>
-              <span className="program-en">{ex.name}</span>
-            </div>
-            <div className="program-actions">
-              <button onClick={() => routine.move(ex.id, -1)} disabled={i === 0} title="ขึ้น">▲</button>
-              <button onClick={() => routine.move(ex.id, 1)} disabled={i === items.length - 1} title="ลง">▼</button>
-              <button onClick={() => routine.remove(ex.id)} title="ลบ">✕</button>
-            </div>
-          </li>
+      {/* แถบเลือกโปรแกรม */}
+      <div className="prog-tabs">
+        {programs.programs.map((p) => (
+          <button
+            key={p.id}
+            className={"prog-tab" + (p.id === active?.id ? " prog-tab-active" : "")}
+            onClick={() => programs.setActive(p.id)}
+          >
+            {p.name} <span className="prog-tab-n">{p.ids.length}</span>
+          </button>
         ))}
-      </ol>
+        <button className="prog-tab prog-tab-new" onClick={handleCreate}>＋ สร้างโปรแกรม</button>
+      </div>
+
+      {!active ? (
+        <div className="empty">
+          <p className="state">ยังไม่มีโปรแกรม — กด "＋ สร้างโปรแกรม" เพื่อเริ่ม</p>
+        </div>
+      ) : (
+        <>
+          <div className="program-head">
+            <h2 className="prog-title">
+              {active.name}
+              <button className="prog-icon" onClick={handleRename} title="เปลี่ยนชื่อ">✎</button>
+              <button className="prog-icon" onClick={handleDelete} title="ลบโปรแกรม">🗑️</button>
+            </h2>
+            {items.length > 0 && (
+              <button className="reset" onClick={programs.clearActive}>ล้างท่าทั้งหมด</button>
+            )}
+          </div>
+
+          {items.length === 0 ? (
+            <div className="empty">
+              <p className="state">📋 ยังไม่มีท่าในโปรแกรมนี้</p>
+              <p className="state">ไปที่หน้า "ค้นหา" แล้วกดปุ่ม ＋ ที่การ์ด เพื่อเพิ่มท่าเข้าโปรแกรมที่เลือกอยู่</p>
+            </div>
+          ) : (
+            <ol className="program-list">
+              {items.map((ex, i) => (
+                <li key={ex.id} className="program-item">
+                  <span className="program-no">{i + 1}</span>
+                  <img className="program-thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} onClick={() => onOpen(ex)} />
+                  <div className="program-info" onClick={() => onOpen(ex)}>
+                    <strong>{thaiName(ex.name)}</strong>
+                    <span className="program-en">{ex.name}</span>
+                  </div>
+                  <div className="program-actions">
+                    <button onClick={() => programs.move(ex.id, -1)} disabled={i === 0} title="ขึ้น">▲</button>
+                    <button onClick={() => programs.move(ex.id, 1)} disabled={i === items.length - 1} title="ลง">▼</button>
+                    <button onClick={() => programs.removeFromActive(ex.id)} title="ลบ">✕</button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
     </div>
   );
 }
