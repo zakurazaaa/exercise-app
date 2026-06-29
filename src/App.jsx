@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { loadExercises, uniqueValues, mediaUrl } from "./data";
+import { loadIndex, loadDetailsMap, uniqueValues, mediaUrl } from "./data";
 import { translateSteps } from "./translate";
 import { useFavorites } from "./favorites";
+import { useRoutine } from "./routine";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
 import "./App.css";
@@ -17,7 +18,6 @@ function onImgError(e) {
   }
 }
 
-// แมปชื่อท่าอังกฤษ -> ไทย (โหลดครั้งเดียว)
 let namesPromise = null;
 function loadNames() {
   if (!namesPromise) {
@@ -33,26 +33,29 @@ export default function App() {
   const [status, setStatus] = useState("loading"); // loading | ready | error
   const [error, setError] = useState("");
   const [nameMap, setNameMap] = useState({});
+  const [details, setDetails] = useState({}); // id -> รายละเอียดเต็ม (lazy)
 
-  const [view, setView] = useState("browse"); // browse | categories
+  const [view, setView] = useState("browse"); // browse | categories | program
   const [query, setQuery] = useState("");
   const [bodyPart, setBodyPart] = useState("");
   const [equipment, setEquipment] = useState("");
   const [target, setTarget] = useState("");
-  const [category, setCategory] = useState(""); // หมวดการเคลื่อนไหว
+  const [category, setCategory] = useState("");
   const [favOnly, setFavOnly] = useState(false);
   const [selected, setSelected] = useState(null);
 
-  const { toggle, isFav, count } = useFavorites();
+  const fav = useFavorites();
+  const routine = useRoutine();
 
-  // ชื่อท่าไทย: ใช้ไฟล์แปลล่วงหน้าก่อน ถ้าไม่มี fallback เป็น glossary ทีละคำ
   const thaiName = (name) => nameMap[name] || thName(name);
 
   useEffect(() => {
-    loadExercises()
+    loadIndex()
       .then((data) => {
         setExercises(data);
         setStatus("ready");
+        // โหลดรายละเอียดเต็มเบื้องหลัง "หลัง" index พร้อม (ไม่แย่ง bandwidth หน้าแรก)
+        loadDetailsMap().then(setDetails);
       })
       .catch((e) => {
         setError(e.message);
@@ -64,8 +67,11 @@ export default function App() {
   const bodyParts = useMemo(() => uniqueValues(exercises, "body_part"), [exercises]);
   const equipments = useMemo(() => uniqueValues(exercises, "equipment"), [exercises]);
   const targets = useMemo(() => uniqueValues(exercises, "target"), [exercises]);
+  const byId = useMemo(
+    () => Object.fromEntries(exercises.map((e) => [e.id, e])),
+    [exercises]
+  );
 
-  // นับจำนวนท่าต่อหมวดการเคลื่อนไหว (สำหรับหน้าหมวดหมู่)
   const catCounts = useMemo(() => {
     const c = {};
     for (const ex of exercises) {
@@ -78,7 +84,7 @@ export default function App() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return exercises.filter((ex) => {
-      if (favOnly && !isFav(ex.id)) return false;
+      if (favOnly && !fav.isFav(ex.id)) return false;
       if (category && categorize(ex) !== category) return false;
       if (q && !ex.name.toLowerCase().includes(q)) return false;
       if (bodyPart && ex.body_part !== bodyPart) return false;
@@ -86,7 +92,7 @@ export default function App() {
       if (target && ex.target !== target) return false;
       return true;
     });
-  }, [exercises, query, bodyPart, equipment, target, favOnly, isFav, category]);
+  }, [exercises, query, bodyPart, equipment, target, favOnly, fav, category]);
 
   const resetFilters = () => {
     setQuery("");
@@ -103,6 +109,7 @@ export default function App() {
   };
 
   const activeCatLabel = CATEGORIES.find((c) => c.key === category)?.label;
+  const routineItems = routine.ids.map((id) => byId[id]).filter(Boolean);
 
   return (
     <div className="app">
@@ -112,24 +119,19 @@ export default function App() {
           ค้นหาท่าออกกำลังกายพร้อมภาพเคลื่อนไหว กล้ามเนื้อเป้าหมาย และวิธีทำทีละขั้น
         </p>
         <div className="nav">
-          <button
-            className={"nav-btn" + (view === "browse" ? " nav-active" : "")}
-            onClick={() => setView("browse")}
-          >
+          <button className={"nav-btn" + (view === "browse" ? " nav-active" : "")} onClick={() => setView("browse")}>
             🔎 ค้นหา
           </button>
-          <button
-            className={"nav-btn" + (view === "categories" ? " nav-active" : "")}
-            onClick={() => setView("categories")}
-          >
+          <button className={"nav-btn" + (view === "categories" ? " nav-active" : "")} onClick={() => setView("categories")}>
             🗂️ หมวดหมู่
+          </button>
+          <button className={"nav-btn" + (view === "program" ? " nav-active" : "")} onClick={() => setView("program")}>
+            📋 โปรแกรม ({routine.count})
           </button>
         </div>
       </header>
 
-      {status === "loading" && (
-        <p className="state">⏳ กำลังโหลดข้อมูลจาก GitHub… (ไฟล์ใหญ่ ~6 MB)</p>
-      )}
+      {status === "loading" && <p className="state">⏳ กำลังโหลด…</p>}
       {status === "error" && <p className="state error">❌ {error}</p>}
 
       {status === "ready" && view === "categories" && (
@@ -142,6 +144,15 @@ export default function App() {
             </button>
           ))}
         </div>
+      )}
+
+      {status === "ready" && view === "program" && (
+        <ProgramView
+          items={routineItems}
+          thaiName={thaiName}
+          routine={routine}
+          onOpen={setSelected}
+        />
       )}
 
       {status === "ready" && view === "browse" && (
@@ -157,27 +168,18 @@ export default function App() {
             <div className="filters">
               <select value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
                 <option value="">ส่วนของร่างกาย (ทั้งหมด)</option>
-                {bodyParts.map((v) => (
-                  <option key={v} value={v}>{thBody(v)}</option>
-                ))}
+                {bodyParts.map((v) => (<option key={v} value={v}>{thBody(v)}</option>))}
               </select>
               <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
                 <option value="">อุปกรณ์ (ทั้งหมด)</option>
-                {equipments.map((v) => (
-                  <option key={v} value={v}>{thEquip(v)}</option>
-                ))}
+                {equipments.map((v) => (<option key={v} value={v}>{thEquip(v)}</option>))}
               </select>
               <select value={target} onChange={(e) => setTarget(e.target.value)}>
                 <option value="">กล้ามเนื้อเป้าหมาย (ทั้งหมด)</option>
-                {targets.map((v) => (
-                  <option key={v} value={v}>{thMuscle(v)}</option>
-                ))}
+                {targets.map((v) => (<option key={v} value={v}>{thMuscle(v)}</option>))}
               </select>
-              <button
-                className={"chip" + (favOnly ? " chip-active" : "")}
-                onClick={() => setFavOnly((v) => !v)}
-              >
-                {favOnly ? "★" : "☆"} เฉพาะที่ชอบ ({count})
+              <button className={"chip" + (favOnly ? " chip-active" : "")} onClick={() => setFavOnly((v) => !v)}>
+                {favOnly ? "★" : "☆"} เฉพาะที่ชอบ ({fav.count})
               </button>
               <button className="reset" onClick={resetFilters}>ล้างตัวกรอง</button>
             </div>
@@ -194,41 +196,18 @@ export default function App() {
             <p className="state">ยังไม่มีท่าโปรด — กดรูป ♡ ที่การ์ดเพื่อบันทึก</p>
           )}
           <div className="grid">
-            {filtered.slice(0, 300).map((ex) => {
-              const thai = thaiName(ex.name);
-              const fav = isFav(ex.id);
-              return (
-                <div key={ex.id} className="card" onClick={() => setSelected(ex)}>
-                  <div className="thumb-wrap">
-                    <img
-                      className="thumb"
-                      src={mediaUrl(ex.image)}
-                      alt={ex.name}
-                      loading="lazy"
-                      onError={onImgError}
-                    />
-                    <button
-                      className={"fav-btn" + (fav ? " fav-on" : "")}
-                      title={fav ? "เอาออกจากที่ชอบ" : "เพิ่มในที่ชอบ"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggle(ex.id);
-                      }}
-                    >
-                      {fav ? "♥" : "♡"}
-                    </button>
-                  </div>
-                  <div className="card-body">
-                    <h3>{ex.name}</h3>
-                    {thai && <p className="th-name">{thai}</p>}
-                    <div className="tags">
-                      <span className="tag">{thBody(ex.body_part)}</span>
-                      <span className="tag tag-muted">{thEquip(ex.equipment)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filtered.slice(0, 300).map((ex) => (
+              <Card
+                key={ex.id}
+                ex={ex}
+                thai={thaiName(ex.name)}
+                fav={fav.isFav(ex.id)}
+                inRoutine={routine.inRoutine(ex.id)}
+                onOpen={() => setSelected(ex)}
+                onToggleFav={() => fav.toggle(ex.id)}
+                onToggleRoutine={() => routine.toggle(ex.id)}
+              />
+            ))}
           </div>
           {filtered.length > 300 && (
             <p className="state">แสดง 300 ท่าแรก — ใช้ตัวกรองเพื่อแคบผลลัพธ์</p>
@@ -239,20 +218,20 @@ export default function App() {
       {selected && (
         <ExerciseModal
           ex={selected}
+          detail={details[selected.id]}
+          detailsReady={Object.keys(details).length > 0}
           thaiName={thaiName(selected.name)}
           onClose={() => setSelected(null)}
-          isFav={isFav(selected.id)}
-          onToggleFav={() => toggle(selected.id)}
+          isFav={fav.isFav(selected.id)}
+          onToggleFav={() => fav.toggle(selected.id)}
+          inRoutine={routine.inRoutine(selected.id)}
+          onToggleRoutine={() => routine.toggle(selected.id)}
         />
       )}
 
       <footer className="footer">
         ข้อมูลจาก{" "}
-        <a
-          href="https://github.com/hasaneyldrm/exercises-dataset"
-          target="_blank"
-          rel="noreferrer"
-        >
+        <a href="https://github.com/hasaneyldrm/exercises-dataset" target="_blank" rel="noreferrer">
           hasaneyldrm/exercises-dataset
         </a>{" "}
         · เพื่อการศึกษาเท่านั้น
@@ -261,27 +240,90 @@ export default function App() {
   );
 }
 
-function ExerciseModal({ ex, thaiName, onClose, isFav, onToggleFav }) {
-  const enSteps = ex.instruction_steps?.en || [];
-  const [lang, setLang] = useState("th"); // th | en
-  const [thSteps, setThSteps] = useState(null);
-  const [tStatus, setTStatus] = useState("idle"); // idle | loading | done | error
+function Card({ ex, thai, fav, inRoutine, onOpen, onToggleFav, onToggleRoutine }) {
+  return (
+    <div className="card" onClick={onOpen}>
+      <div className="thumb-wrap">
+        <img className="thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} />
+        <button
+          className={"rt-btn" + (inRoutine ? " rt-on" : "")}
+          title={inRoutine ? "อยู่ในโปรแกรมแล้ว" : "เพิ่มในโปรแกรม"}
+          onClick={(e) => { e.stopPropagation(); onToggleRoutine(); }}
+        >
+          {inRoutine ? "✓" : "＋"}
+        </button>
+        <button
+          className={"fav-btn" + (fav ? " fav-on" : "")}
+          title={fav ? "เอาออกจากที่ชอบ" : "เพิ่มในที่ชอบ"}
+          onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
+        >
+          {fav ? "♥" : "♡"}
+        </button>
+      </div>
+      <div className="card-body">
+        <h3>{ex.name}</h3>
+        {thai && <p className="th-name">{thai}</p>}
+        <div className="tags">
+          <span className="tag">{thBody(ex.body_part)}</span>
+          <span className="tag tag-muted">{thEquip(ex.equipment)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  // แปลวิธีทำเป็นไทยเมื่อเลือกภาษาไทยครั้งแรก
+function ProgramView({ items, thaiName, routine, onOpen }) {
+  if (items.length === 0) {
+    return (
+      <div className="empty">
+        <p className="state">📋 ยังไม่มีท่าในโปรแกรม</p>
+        <p className="state">ไปที่หน้า "ค้นหา" แล้วกดปุ่ม ＋ ที่การ์ดเพื่อเพิ่มท่าเข้าโปรแกรมของคุณ</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="program-head">
+        <p className="count">โปรแกรมของฉัน · {items.length} ท่า</p>
+        <button className="reset" onClick={routine.clear}>ล้างทั้งหมด</button>
+      </div>
+      <ol className="program-list">
+        {items.map((ex, i) => (
+          <li key={ex.id} className="program-item">
+            <span className="program-no">{i + 1}</span>
+            <img className="program-thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} onClick={() => onOpen(ex)} />
+            <div className="program-info" onClick={() => onOpen(ex)}>
+              <strong>{thaiName(ex.name)}</strong>
+              <span className="program-en">{ex.name}</span>
+            </div>
+            <div className="program-actions">
+              <button onClick={() => routine.move(ex.id, -1)} disabled={i === 0} title="ขึ้น">▲</button>
+              <button onClick={() => routine.move(ex.id, 1)} disabled={i === items.length - 1} title="ลง">▼</button>
+              <button onClick={() => routine.remove(ex.id)} title="ลบ">✕</button>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onToggleFav, inRoutine, onToggleRoutine }) {
+  const enSteps = detail?.instruction_steps?.en || [];
+  const gif = detail?.gif_url;
+  const secondary = detail?.secondary_muscles || [];
+  const [lang, setLang] = useState("th");
+  const [thSteps, setThSteps] = useState(null);
+  const [tStatus, setTStatus] = useState("idle");
+
   useEffect(() => {
-    if (lang !== "th" || thSteps || tStatus === "loading") return;
+    if (lang !== "th" || thSteps || tStatus === "loading" || enSteps.length === 0) return;
     let cancelled = false;
     setTStatus("loading");
     translateSteps(enSteps)
-      .then((th) => {
-        if (cancelled) return;
-        setThSteps(th);
-        setTStatus("done");
-      })
+      .then((th) => { if (!cancelled) { setThSteps(th); setTStatus("done"); } })
       .catch(() => !cancelled && setTStatus("error"));
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [lang, thSteps, tStatus, enSteps]);
 
   const showThai = lang === "th";
@@ -291,20 +333,29 @@ function ExerciseModal({ ex, thaiName, onClose, isFav, onToggleFav }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="close" onClick={onClose}>✕</button>
-        <img className="gif" src={mediaUrl(ex.gif_url)} alt={ex.name} onError={onImgError} />
+        <img className="gif" src={mediaUrl(gif || ex.image)} alt={ex.name} onError={onImgError} />
         <div className="modal-content">
           <div className="modal-title">
             <div>
               <h2>{ex.name}</h2>
               {thaiName && <p className="th-name">{thaiName}</p>}
             </div>
-            <button
-              className={"fav-btn fav-lg" + (isFav ? " fav-on" : "")}
-              onClick={onToggleFav}
-              title={isFav ? "เอาออกจากที่ชอบ" : "เพิ่มในที่ชอบ"}
-            >
-              {isFav ? "♥" : "♡"}
-            </button>
+            <div className="modal-actions">
+              <button
+                className={"rt-btn rt-lg" + (inRoutine ? " rt-on" : "")}
+                onClick={onToggleRoutine}
+                title={inRoutine ? "อยู่ในโปรแกรมแล้ว" : "เพิ่มในโปรแกรม"}
+              >
+                {inRoutine ? "✓" : "＋"}
+              </button>
+              <button
+                className={"fav-btn fav-lg" + (isFav ? " fav-on" : "")}
+                onClick={onToggleFav}
+                title={isFav ? "เอาออกจากที่ชอบ" : "เพิ่มในที่ชอบ"}
+              >
+                {isFav ? "♥" : "♡"}
+              </button>
+            </div>
           </div>
 
           <div className="tags">
@@ -312,31 +363,20 @@ function ExerciseModal({ ex, thaiName, onClose, isFav, onToggleFav }) {
             <span className="tag">{thEquip(ex.equipment)}</span>
             <span className="tag tag-accent">เป้าหมาย: {thMuscle(ex.target)}</span>
           </div>
-          {ex.secondary_muscles?.length > 0 && (
-            <p className="muscles">
-              กล้ามเนื้อเสริม: {thMuscles(ex.secondary_muscles).join(", ")}
-            </p>
+          {secondary.length > 0 && (
+            <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(secondary).join(", ")}</p>
           )}
 
           <div className="steps-head">
             <h4>วิธีทำ</h4>
             <div className="lang-toggle">
-              <button
-                className={showThai ? "active" : ""}
-                onClick={() => setLang("th")}
-              >
-                ไทย
-              </button>
-              <button
-                className={!showThai ? "active" : ""}
-                onClick={() => setLang("en")}
-              >
-                EN
-              </button>
+              <button className={showThai ? "active" : ""} onClick={() => setLang("th")}>ไทย</button>
+              <button className={!showThai ? "active" : ""} onClick={() => setLang("en")}>EN</button>
             </div>
           </div>
 
-          {showThai && tStatus === "loading" && (
+          {!detail && !detailsReady && <p className="translating">⏳ กำลังโหลดรายละเอียด…</p>}
+          {detail && showThai && tStatus === "loading" && (
             <p className="translating">⏳ กำลังแปลวิธีทำเป็นภาษาไทย…</p>
           )}
           {showThai && tStatus === "error" && (
@@ -344,9 +384,7 @@ function ExerciseModal({ ex, thaiName, onClose, isFav, onToggleFav }) {
           )}
 
           <ol className="steps">
-            {steps.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
+            {steps.map((s, i) => (<li key={i}>{s}</li>))}
           </ol>
 
           <TipsBox ex={ex} />
@@ -362,9 +400,7 @@ function TipsBox({ ex }) {
     <div className="tips">
       <h4>💡 เคล็ดลับ & ข้อควรระวัง <span className="tips-cat">({tips.label})</span></h4>
       <ul className="tips-list">
-        {tips.items.map((t, i) => (
-          <li key={i}>{t}</li>
-        ))}
+        {tips.items.map((t, i) => (<li key={i}>{t}</li>))}
       </ul>
       <p className="translate-note">
         * คำแนะนำทั่วไปตามหมวดการเคลื่อนไหว — หากเพิ่งเริ่มหรือมีอาการบาดเจ็บ ควรปรึกษาผู้เชี่ยวชาญ

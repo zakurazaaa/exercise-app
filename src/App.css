@@ -177,6 +177,90 @@ body {
 }
 .fav-btn:hover { transform: scale(1.12); }
 .fav-btn.fav-on { color: var(--accent); }
+
+.rt-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.rt-btn:hover { transform: scale(1.12); }
+.rt-btn.rt-on { background: #2e8b57; }
+.rt-lg {
+  position: static;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+.rt-lg.rt-on { background: #2e8b57; border-color: #2e8b57; }
+.modal-actions { display: flex; gap: 8px; flex: none; }
+
+.empty { text-align: center; padding: 30px 0; }
+.program-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.program-list { list-style: none; padding: 0; margin: 0; }
+.program-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.program-no {
+  width: 22px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  flex: none;
+}
+.program-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #fff;
+  cursor: pointer;
+  flex: none;
+}
+.program-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.program-info strong { font-size: 14px; }
+.program-en { font-size: 12px; color: var(--muted); text-transform: capitalize; }
+.program-actions { display: flex; gap: 4px; flex: none; }
+.program-actions button {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+}
+.program-actions button:disabled { opacity: 0.3; cursor: default; }
 .fav-lg {
   position: static;
   background: var(--card);
