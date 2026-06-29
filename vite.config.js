@@ -2,9 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// base: GitHub Pages เสิร์ฟใต้ /exercise-app/ (ตั้ง env GHPAGES=true)
+// โฮสต์อื่น (Netlify/Cloudflare/โดเมนเอง) เสิร์ฟที่ root "/"
+const base = process.env.GHPAGES ? "/exercise-app/" : "/";
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: "/exercise-app/", // เสิร์ฟภายใต้ path /exercise-app/ บน GitHub Pages
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -18,8 +22,8 @@ export default defineConfig({
         theme_color: '#ff5a3c',
         background_color: '#0f1115',
         display: 'standalone',
-        start_url: '/exercise-app/',
-        scope: '/exercise-app/',
+        start_url: base,
+        scope: base,
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

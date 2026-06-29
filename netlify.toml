@@ -1,0 +1,4 @@
+# ตั้งค่าสำหรับ Netlify (เสิร์ฟที่ root "/")
+[build]
+  command = "npm run build"
+  publish = "dist"
