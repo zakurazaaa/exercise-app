@@ -4,4 +4,6 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // เสิร์ฟภายใต้ path /exercise-app/ บน GitHub Pages
+  base: "/exercise-app/",
 })
