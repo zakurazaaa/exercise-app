@@ -65,6 +65,8 @@ body {
   cursor: pointer;
 }
 .reset:hover { background: var(--card-hover); }
+.chip { white-space: nowrap; }
+.chip-active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 .count { color: var(--muted); font-size: 14px; }
 .state { color: var(--muted); text-align: center; padding: 30px 0; }
@@ -87,17 +89,51 @@ body {
   transition: transform 0.12s, background 0.12s;
 }
 .card:hover { transform: translateY(-3px); background: var(--card-hover); }
+.thumb-wrap { position: relative; }
 .thumb {
+  display: block;
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   background: #fff;
 }
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.fav-btn:hover { transform: scale(1.12); }
+.fav-btn.fav-on { color: var(--accent); }
+.fav-lg {
+  position: static;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+
 .card-body { padding: 10px 12px 14px; }
 .card-body h3 {
-  margin: 0 0 8px;
+  margin: 0 0 2px;
   font-size: 15px;
   text-transform: capitalize;
+}
+.th-name {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--accent);
 }
 
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -150,7 +186,15 @@ body {
   display: block;
 }
 .modal-content { padding: 18px 20px 24px; }
-.modal-content h2 { margin: 0 0 12px; text-transform: capitalize; }
+.modal-content h2 { margin: 0; text-transform: capitalize; }
+.modal-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.modal-title .th-name { margin-top: 4px; }
 .muscles { color: var(--muted); font-size: 14px; }
 .steps { padding-left: 20px; line-height: 1.6; }
 .steps li { margin-bottom: 8px; }
