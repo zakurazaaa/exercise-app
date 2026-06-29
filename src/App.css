@@ -27,6 +27,12 @@ body {
   margin: 0 0 6px;
   font-size: 28px;
 }
+.brand-sub {
+  font-size: 15px;
+  font-weight: normal;
+  color: var(--muted);
+  margin-left: 4px;
+}
 .subtitle {
   margin: 0;
   color: var(--muted);

@@ -107,7 +107,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>💪 คลังท่าออกกำลังกาย</h1>
+        <h1>💪 FitPedia <span className="brand-sub">คลังท่าออกกำลังกาย</span></h1>
         <p className="subtitle">
           ค้นหาท่าออกกำลังกายพร้อมภาพเคลื่อนไหว กล้ามเนื้อเป้าหมาย และวิธีทำทีละขั้น
         </p>

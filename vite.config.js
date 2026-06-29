@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'th-steps.json', 'th-names.json'],
       manifest: {
-        name: 'คลังท่าออกกำลังกาย',
-        short_name: 'ท่าออกกำลังกาย',
+        name: 'FitPedia — คลังท่าออกกำลังกาย',
+        short_name: 'FitPedia',
         description: 'ค้นหาท่าออกกำลังกาย 1,324 ท่า พร้อม GIF และวิธีทำภาษาไทย',
         lang: 'th',
         theme_color: '#ff5a3c',
