@@ -1,8 +1,21 @@
-// แปลข้อความ EN -> TH แบบ on-demand ผ่าน MyMemory (ฟรี ไม่ต้องใช้คีย์)
-// แคชผลลัพธ์ทั้งในหน่วยความจำและ localStorage เพื่อไม่ให้แปลซ้ำและประหยัดโควต้า
+// แปลวิธีทำ EN -> TH
+// ลำดับการหาคำแปล: ไฟล์ที่แปลไว้ล่วงหน้า (th-steps.json) -> แคช -> เรียก API สด
+// ทำให้ส่วนใหญ่แสดงผลทันที เหลือเฉพาะประโยคที่ยังไม่ได้ pre-translate ที่ต้องเรียก API
 
 const memCache = new Map();
 const LS_KEY = "th-translations-v1";
+
+// โหลดไฟล์ pre-translated ครั้งเดียว (เก็บใน public/ -> เสิร์ฟที่ BASE_URL)
+let bundledPromise = null;
+function loadBundled() {
+  if (!bundledPromise) {
+    const url = `${import.meta.env.BASE_URL}th-steps.json`;
+    bundledPromise = fetch(url)
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+  }
+  return bundledPromise;
+}
 
 function loadStore() {
   try {
@@ -16,22 +29,24 @@ function saveStore(store) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(store));
   } catch {
-    // localStorage เต็มหรือถูกปิด — ข้ามได้ ยังมี memCache อยู่
+    // ข้ามได้
   }
 }
 
-async function translateOne(text) {
-  if (memCache.has(text)) return memCache.get(text);
+async function translateOne(text, bundled) {
+  const key = text.trim();
+  if (bundled[key]) return bundled[key];
+  if (memCache.has(key)) return memCache.get(key);
 
   const store = loadStore();
-  if (store[text]) {
-    memCache.set(text, store[text]);
-    return store[text];
+  if (store[key]) {
+    memCache.set(key, store[key]);
+    return store[key];
   }
 
   const url =
     "https://api.mymemory.translated.net/get?q=" +
-    encodeURIComponent(text) +
+    encodeURIComponent(key) +
     "&langpair=en|th";
   const res = await fetch(url);
   if (!res.ok) throw new Error("translate failed");
@@ -39,13 +54,14 @@ async function translateOne(text) {
   const th = data?.responseData?.translatedText;
   if (!th) throw new Error("no translation");
 
-  memCache.set(text, th);
-  store[text] = th;
+  memCache.set(key, th);
+  store[key] = th;
   saveStore(store);
   return th;
 }
 
-// แปลหลายบรรทัด (steps) พร้อมกัน — คืน array ภาษาไทยเรียงตามเดิม
+// แปลหลายบรรทัด (steps) — คืน array ภาษาไทยเรียงตามเดิม
 export async function translateSteps(steps) {
-  return Promise.all(steps.map((s) => translateOne(s)));
+  const bundled = await loadBundled();
+  return Promise.all(steps.map((s) => translateOne(s, bundled)));
 }
