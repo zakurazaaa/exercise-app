@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadExercises, uniqueValues, mediaUrl } from "./data";
+import { translateSteps } from "./translate";
 import "./App.css";
 
 export default function App() {
@@ -140,7 +141,31 @@ export default function App() {
 }
 
 function ExerciseModal({ ex, onClose }) {
-  const steps = ex.instruction_steps?.en || [];
+  const enSteps = ex.instruction_steps?.en || [];
+  const [lang, setLang] = useState("th"); // th | en
+  const [thSteps, setThSteps] = useState(null);
+  const [tStatus, setTStatus] = useState("idle"); // idle | loading | done | error
+
+  // แปลเป็นไทยเมื่อเลือกภาษาไทยครั้งแรก
+  useEffect(() => {
+    if (lang !== "th" || thSteps || tStatus === "loading") return;
+    let cancelled = false;
+    setTStatus("loading");
+    translateSteps(enSteps)
+      .then((th) => {
+        if (cancelled) return;
+        setThSteps(th);
+        setTStatus("done");
+      })
+      .catch(() => !cancelled && setTStatus("error"));
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, thSteps, tStatus, enSteps]);
+
+  const showThai = lang === "th";
+  const steps = showThai && thSteps ? thSteps : enSteps;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -158,12 +183,43 @@ function ExerciseModal({ ex, onClose }) {
               กล้ามเนื้อเสริม: {ex.secondary_muscles.join(", ")}
             </p>
           )}
-          <h4>วิธีทำ</h4>
+
+          <div className="steps-head">
+            <h4>วิธีทำ</h4>
+            <div className="lang-toggle">
+              <button
+                className={showThai ? "active" : ""}
+                onClick={() => setLang("th")}
+              >
+                ไทย
+              </button>
+              <button
+                className={!showThai ? "active" : ""}
+                onClick={() => setLang("en")}
+              >
+                EN
+              </button>
+            </div>
+          </div>
+
+          {showThai && tStatus === "loading" && (
+            <p className="translating">⏳ กำลังแปลเป็นภาษาไทย…</p>
+          )}
+          {showThai && tStatus === "error" && (
+            <p className="translating">
+              ⚠️ แปลไม่สำเร็จ แสดงภาษาอังกฤษแทน
+            </p>
+          )}
+
           <ol className="steps">
             {steps.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
           </ol>
+
+          {showThai && tStatus === "done" && (
+            <p className="translate-note">* แปลอัตโนมัติด้วย MyMemory</p>
+          )}
         </div>
       </div>
     </div>

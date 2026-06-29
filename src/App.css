@@ -155,6 +155,31 @@ body {
 .steps { padding-left: 20px; line-height: 1.6; }
 .steps li { margin-bottom: 8px; }
 
+.steps-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.steps-head h4 { margin: 0; }
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.lang-toggle button {
+  border: none;
+  background: var(--card);
+  color: var(--muted);
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.lang-toggle button.active { background: var(--accent); color: #fff; }
+.translating { color: var(--muted); font-size: 14px; }
+.translate-note { color: var(--muted); font-size: 12px; font-style: italic; }
+
 .footer {
   margin-top: 40px;
   text-align: center;
