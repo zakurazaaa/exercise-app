@@ -121,6 +121,38 @@ export function usePrograms() {
     [active]
   );
 
+  // ---- ฟังก์ชันแบบระบุโปรแกรม (สำหรับเมนูเลือกโปรแกรม) ----
+  const isIn = useCallback(
+    (pid, exId) => programs.some((p) => p.id === pid && p.ids.includes(exId)),
+    [programs]
+  );
+
+  const inAny = useCallback(
+    (exId) => programs.some((p) => p.ids.includes(exId)),
+    [programs]
+  );
+
+  const toggleIn = useCallback((pid, exId) => {
+    setState((s) => ({
+      ...s,
+      programs: s.programs.map((p) => {
+        if (p.id !== pid) return p;
+        const has = p.ids.includes(exId);
+        return { ...p, ids: has ? p.ids.filter((x) => x !== exId) : [...p.ids, exId] };
+      }),
+    }));
+  }, []);
+
+  // สร้างโปรแกรมใหม่พร้อมใส่ท่าทันที
+  const createWith = useCallback((name, exId) => {
+    const id = newId();
+    setState((s) => ({
+      programs: [...s.programs, { id, name: name || "โปรแกรมใหม่", ids: exId ? [exId] : [] }],
+      activeId: id,
+    }));
+    return id;
+  }, []);
+
   return {
     programs,
     active,
@@ -128,9 +160,13 @@ export function usePrograms() {
     programCount: programs.length,
     setActive,
     create,
+    createWith,
     rename,
     removeProgram,
     toggle,
+    toggleIn,
+    isIn,
+    inAny,
     removeFromActive,
     move,
     clearActive,

@@ -44,6 +44,7 @@ export default function App() {
   const [category, setCategory] = useState("");
   const [favOnly, setFavOnly] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
 
   const fav = useFavorites();
   const programs = usePrograms();
@@ -204,10 +205,10 @@ export default function App() {
                 ex={ex}
                 thai={thaiName(ex.name)}
                 fav={fav.isFav(ex.id)}
-                inRoutine={programs.inActive(ex.id)}
+                inRoutine={programs.inAny(ex.id)}
                 onOpen={() => setSelected(ex)}
                 onToggleFav={() => fav.toggle(ex.id)}
-                onToggleRoutine={() => programs.toggle(ex.id)}
+                onToggleRoutine={() => setPicker(ex)}
               />
             ))}
           </div>
@@ -226,10 +227,53 @@ export default function App() {
           onClose={() => setSelected(null)}
           isFav={fav.isFav(selected.id)}
           onToggleFav={() => fav.toggle(selected.id)}
-          inRoutine={programs.inActive(selected.id)}
-          onToggleRoutine={() => programs.toggle(selected.id)}
+          inRoutine={programs.inAny(selected.id)}
+          onToggleRoutine={() => setPicker(selected)}
         />
       )}
+
+      {picker && (
+        <ProgramPicker
+          ex={picker}
+          thaiName={thaiName(picker.name)}
+          programs={programs}
+          onClose={() => setPicker(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProgramPicker({ ex, thaiName, programs, onClose }) {
+  const handleCreate = () => {
+    const name = window.prompt("ตั้งชื่อโปรแกรมใหม่ (เช่น Upper Body วันจันทร์)", "");
+    if (name && name.trim()) programs.createWith(name.trim(), ex.id);
+  };
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="picker" onClick={(e) => e.stopPropagation()}>
+        <button className="close" onClick={onClose}>✕</button>
+        <h3 className="picker-title">เพิ่มเข้าโปรแกรม</h3>
+        <p className="picker-ex">{thaiName || ex.name}</p>
+        <div className="picker-list">
+          {programs.programs.map((p) => {
+            const checked = p.ids.includes(ex.id);
+            return (
+              <button
+                key={p.id}
+                className={"picker-row" + (checked ? " picker-on" : "")}
+                onClick={() => programs.toggleIn(p.id, ex.id)}
+              >
+                <span className="picker-check">{checked ? "✓" : "＋"}</span>
+                <span className="picker-name">{p.name}</span>
+                <span className="picker-n">{p.ids.length} ท่า</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="picker-new" onClick={handleCreate}>＋ สร้างโปรแกรมใหม่แล้วเพิ่มท่านี้</button>
+        <p className="picker-hint">เพิ่มท่านี้ได้หลายโปรแกรมพร้อมกัน (ติ๊กได้มากกว่า 1)</p>
+      </div>
     </div>
   );
 }
@@ -241,7 +285,7 @@ function Card({ ex, thai, fav, inRoutine, onOpen, onToggleFav, onToggleRoutine }
         <img className="thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} />
         <button
           className={"rt-btn" + (inRoutine ? " rt-on" : "")}
-          title={inRoutine ? "อยู่ในโปรแกรมแล้ว" : "เพิ่มในโปรแกรม"}
+          title={inRoutine ? "อยู่ในโปรแกรมแล้ว — แตะเพื่อเลือกโปรแกรม" : "เลือกโปรแกรมที่จะเพิ่ม"}
           onClick={(e) => { e.stopPropagation(); onToggleRoutine(); }}
         >
           {inRoutine ? "✓" : "＋"}
@@ -382,7 +426,7 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
               <button
                 className={"rt-btn rt-lg" + (inRoutine ? " rt-on" : "")}
                 onClick={onToggleRoutine}
-                title={inRoutine ? "อยู่ในโปรแกรมแล้ว" : "เพิ่มในโปรแกรม"}
+                title={inRoutine ? "อยู่ในโปรแกรมแล้ว — แตะเพื่อเลือกโปรแกรม" : "เลือกโปรแกรมที่จะเพิ่ม"}
               >
                 {inRoutine ? "✓" : "＋"}
               </button>
