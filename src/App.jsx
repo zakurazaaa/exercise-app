@@ -45,7 +45,6 @@ export default function App() {
   const [favOnly, setFavOnly] = useState(false);
   const [selected, setSelected] = useState(null);
   const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
-  const [showLogin, setShowLogin] = useState(false);
 
   const auth = useAuth();
   const { fav, programs, syncing } = useUserData(auth.user);
@@ -115,6 +114,14 @@ export default function App() {
   const activeCatLabel = CATEGORIES.find((c) => c.key === category)?.label;
   const activeItems = (programs.active?.ids || []).map((id) => byId[id]).filter(Boolean);
 
+  // ต้องล็อกอินก่อนใช้งาน (login wall)
+  if (auth.cloudEnabled && !auth.ready) {
+    return <div className="app"><p className="state">⏳ กำลังโหลด…</p></div>;
+  }
+  if (auth.cloudEnabled && !auth.user) {
+    return <LoginGate auth={auth} />;
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -133,18 +140,10 @@ export default function App() {
             📋 โปรแกรม ({programs.programCount})
           </button>
         </div>
-        {auth.cloudEnabled && (
+        {auth.cloudEnabled && auth.user && (
           <div className="authbar">
-            {auth.user ? (
-              <>
-                <span className="auth-email">☁️ {syncing ? "กำลังซิงค์…" : auth.displayName}</span>
-                <button className="auth-link" onClick={auth.signOut}>ออกจากระบบ</button>
-              </>
-            ) : (
-              <button className="auth-link" onClick={() => setShowLogin(true)}>
-                ☁️ เข้าสู่ระบบเพื่อซิงค์ทุกเครื่อง
-              </button>
-            )}
+            <span className="auth-email">☁️ {syncing ? "กำลังซิงค์…" : auth.displayName}</span>
+            <button className="auth-link" onClick={auth.signOut}>ออกจากระบบ</button>
           </div>
         )}
       </header>
@@ -256,12 +255,11 @@ export default function App() {
         />
       )}
 
-      {showLogin && <LoginModal auth={auth} onClose={() => setShowLogin(false)} />}
     </div>
   );
 }
 
-function LoginModal({ auth, onClose }) {
+function LoginGate({ auth }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("idle"); // idle | working | error
@@ -273,7 +271,7 @@ function LoginModal({ auth, onClose }) {
     setErr("");
     try {
       await auth.signIn(username, password);
-      onClose(); // สำเร็จ -> ปิดเลย
+      // สำเร็จ -> auth.user เปลี่ยน -> แอปจะ render หน้าหลักเอง
     } catch (e2) {
       setErr(e2.message || "เกิดข้อผิดพลาด");
       setStatus("error");
@@ -281,12 +279,12 @@ function LoginModal({ auth, onClose }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="picker" onClick={(e) => e.stopPropagation()}>
-        <button className="close" onClick={onClose}>✕</button>
-        <h3 className="picker-title">เข้าสู่ระบบ / สมัคร</h3>
+    <div className="gate">
+      <div className="gate-card">
+        <h1 className="gate-logo">💪 FitPedia</h1>
+        <p className="gate-sub">เข้าสู่ระบบเพื่อใช้งานและซิงค์โปรแกรมทุกเครื่อง</p>
         <p className="picker-hint" style={{ marginTop: 0 }}>
-          ตั้งชื่อผู้ใช้และรหัสผ่านอะไรก็ได้ (รหัสอย่างน้อย 6 ตัว) — ถ้ายังไม่มีบัญชี ระบบจะสมัครให้อัตโนมัติ เพื่อซิงค์โปรแกรม/ที่ชอบทุกเครื่อง
+          ตั้งชื่อผู้ใช้และรหัสผ่านอะไรก็ได้ (รหัสอย่างน้อย 6 ตัว) — ถ้ายังไม่มีบัญชี ระบบจะสมัครให้อัตโนมัติ
         </p>
         <form onSubmit={submit}>
           <input

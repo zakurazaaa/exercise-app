@@ -54,6 +54,24 @@ body {
 }
 .nav-btn.nav-active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+.gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.gate-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+}
+.gate-logo { margin: 0 0 4px; font-size: 28px; }
+.gate-sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+
 .authbar {
   margin-top: 10px;
   display: flex;
