@@ -137,7 +137,7 @@ export default function App() {
           <div className="authbar">
             {auth.user ? (
               <>
-                <span className="auth-email">☁️ {syncing ? "กำลังซิงค์…" : auth.user.email}</span>
+                <span className="auth-email">☁️ {syncing ? "กำลังซิงค์…" : auth.displayName}</span>
                 <button className="auth-link" onClick={auth.signOut}>ออกจากระบบ</button>
               </>
             ) : (
@@ -262,17 +262,18 @@ export default function App() {
 }
 
 function LoginModal({ auth, onClose }) {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | working | error
   const [err, setErr] = useState("");
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    setStatus("sending");
+    setStatus("working");
+    setErr("");
     try {
-      await auth.signIn(email.trim());
-      setStatus("sent");
+      await auth.signIn(username, password);
+      onClose(); // สำเร็จ -> ปิดเลย
     } catch (e2) {
       setErr(e2.message || "เกิดข้อผิดพลาด");
       setStatus("error");
@@ -283,33 +284,37 @@ function LoginModal({ auth, onClose }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="picker" onClick={(e) => e.stopPropagation()}>
         <button className="close" onClick={onClose}>✕</button>
-        <h3 className="picker-title">เข้าสู่ระบบ / ซิงค์</h3>
-        {status === "sent" ? (
-          <p className="picker-ex">
-            ✅ ส่งลิงก์เข้าสู่ระบบไปที่ {email} แล้ว<br />
-            เปิดอีเมลแล้วกดลิงก์เพื่อเข้าสู่ระบบ (ลิงก์จะพากลับมาที่แอปนี้)
-          </p>
-        ) : (
-          <>
-            <p className="picker-hint" style={{ marginTop: 0 }}>
-              ใส่อีเมล → เราจะส่งลิงก์เข้าสู่ระบบให้ (ไม่ต้องตั้งรหัสผ่าน) เพื่อให้โปรแกรม/ที่ชอบของคุณซิงค์ทุกเครื่อง
-            </p>
-            <form onSubmit={submit}>
-              <input
-                className="search"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoFocus
-              />
-              <button className="picker-new" type="submit" disabled={status === "sending"} style={{ borderStyle: "solid", marginTop: 12 }}>
-                {status === "sending" ? "กำลังส่ง…" : "ส่งลิงก์เข้าสู่ระบบ"}
-              </button>
-            </form>
-            {status === "error" && <p className="state error">❌ {err}</p>}
-          </>
-        )}
+        <h3 className="picker-title">เข้าสู่ระบบ / สมัคร</h3>
+        <p className="picker-hint" style={{ marginTop: 0 }}>
+          ตั้งชื่อผู้ใช้และรหัสผ่านอะไรก็ได้ (รหัสอย่างน้อย 6 ตัว) — ถ้ายังไม่มีบัญชี ระบบจะสมัครให้อัตโนมัติ เพื่อซิงค์โปรแกรม/ที่ชอบทุกเครื่อง
+        </p>
+        <form onSubmit={submit}>
+          <input
+            className="search"
+            type="text"
+            placeholder="ชื่อผู้ใช้ (เช่น zaku, สมชาย)"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoFocus
+          />
+          <input
+            className="search"
+            type="password"
+            placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ marginTop: 8 }}
+          />
+          <button
+            className="picker-new"
+            type="submit"
+            disabled={status === "working"}
+            style={{ borderStyle: "solid", marginTop: 12 }}
+          >
+            {status === "working" ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ / สมัคร"}
+          </button>
+        </form>
+        {status === "error" && <p className="state error">❌ {err}</p>}
       </div>
     </div>
   );
