@@ -224,6 +224,20 @@ body {
 .translating { color: var(--muted); font-size: 14px; }
 .translate-note { color: var(--muted); font-size: 12px; font-style: italic; }
 
+.tips {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: #14171e;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+}
+.tips h4 { margin: 0 0 10px; }
+.tips-cat { color: var(--muted); font-weight: normal; font-size: 13px; }
+.tips-list { margin: 0; padding-left: 18px; line-height: 1.7; }
+.tips-list li { margin-bottom: 6px; }
+.tips .translate-note { margin-top: 10px; margin-bottom: 0; }
+
 .footer {
   margin-top: 40px;
   text-align: center;

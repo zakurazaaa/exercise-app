@@ -3,6 +3,7 @@ import { loadExercises, uniqueValues, mediaUrl } from "./data";
 import { translateSteps } from "./translate";
 import { useFavorites } from "./favorites";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
+import { getTips } from "./tips";
 import "./App.css";
 
 export default function App() {
@@ -267,11 +268,26 @@ function ExerciseModal({ ex, onClose, isFav, onToggleFav }) {
             ))}
           </ol>
 
-          {showThai && tStatus === "done" && (
-            <p className="translate-note">* วิธีทำแปลอัตโนมัติด้วย MyMemory</p>
-          )}
+          <TipsBox ex={ex} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function TipsBox({ ex }) {
+  const tips = getTips(ex);
+  return (
+    <div className="tips">
+      <h4>💡 เคล็ดลับ & ข้อควรระวัง <span className="tips-cat">({tips.label})</span></h4>
+      <ul className="tips-list">
+        {tips.items.map((t, i) => (
+          <li key={i}>{t}</li>
+        ))}
+      </ul>
+      <p className="translate-note">
+        * คำแนะนำทั่วไปตามหมวดการเคลื่อนไหว — หากเพิ่งเริ่มหรือมีอาการบาดเจ็บ ควรปรึกษาผู้เชี่ยวชาญ
+      </p>
     </div>
   );
 }
