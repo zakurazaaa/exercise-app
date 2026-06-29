@@ -5,6 +5,7 @@ import { useFavorites } from "./favorites";
 import { usePrograms } from "./routine";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
+import { matchExercise } from "./search";
 import "./App.css";
 
 // รูปสำรองเมื่อรูป/GIF โหลดไม่ได้ (404)
@@ -82,17 +83,18 @@ export default function App() {
   }, [exercises]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     return exercises.filter((ex) => {
       if (favOnly && !fav.isFav(ex.id)) return false;
       if (category && categorize(ex) !== category) return false;
-      if (q && !ex.name.toLowerCase().includes(q)) return false;
+      if (q && !matchExercise(ex.name, thaiName(ex.name), q)) return false;
       if (bodyPart && ex.body_part !== bodyPart) return false;
       if (equipment && ex.equipment !== equipment) return false;
       if (target && ex.target !== target) return false;
       return true;
     });
-  }, [exercises, query, bodyPart, equipment, target, favOnly, fav, category]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercises, query, bodyPart, equipment, target, favOnly, fav, category, nameMap]);
 
   const resetFilters = () => {
     setQuery("");
@@ -161,7 +163,7 @@ export default function App() {
             <input
               className="search"
               type="search"
-              placeholder="ค้นหาชื่อท่า เช่น sit-up, push-up, squat…"
+              placeholder="ค้นหา (ไทย/อังกฤษ หลายคำได้) เช่น barbell row, สควอท, rdl…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
