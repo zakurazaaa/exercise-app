@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { loadIndex, loadDetailsMap, uniqueValues, mediaUrl } from "./data";
 import { translateSteps } from "./translate";
-import { useFavorites } from "./favorites";
-import { usePrograms } from "./routine";
+import { useUserData } from "./store";
+import { useAuth } from "./auth";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
 import { matchExercise } from "./search";
@@ -45,9 +45,10 @@ export default function App() {
   const [favOnly, setFavOnly] = useState(false);
   const [selected, setSelected] = useState(null);
   const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
+  const [showLogin, setShowLogin] = useState(false);
 
-  const fav = useFavorites();
-  const programs = usePrograms();
+  const auth = useAuth();
+  const { fav, programs, syncing } = useUserData(auth.user);
 
   const thaiName = (name) => nameMap[name] || thName(name);
 
@@ -132,6 +133,20 @@ export default function App() {
             📋 โปรแกรม ({programs.programCount})
           </button>
         </div>
+        {auth.cloudEnabled && (
+          <div className="authbar">
+            {auth.user ? (
+              <>
+                <span className="auth-email">☁️ {syncing ? "กำลังซิงค์…" : auth.user.email}</span>
+                <button className="auth-link" onClick={auth.signOut}>ออกจากระบบ</button>
+              </>
+            ) : (
+              <button className="auth-link" onClick={() => setShowLogin(true)}>
+                ☁️ เข้าสู่ระบบเพื่อซิงค์ทุกเครื่อง
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {status === "loading" && <p className="state">⏳ กำลังโหลด…</p>}
@@ -240,6 +255,62 @@ export default function App() {
           onClose={() => setPicker(null)}
         />
       )}
+
+      {showLogin && <LoginModal auth={auth} onClose={() => setShowLogin(false)} />}
+    </div>
+  );
+}
+
+function LoginModal({ auth, onClose }) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus("sending");
+    try {
+      await auth.signIn(email.trim());
+      setStatus("sent");
+    } catch (e2) {
+      setErr(e2.message || "เกิดข้อผิดพลาด");
+      setStatus("error");
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="picker" onClick={(e) => e.stopPropagation()}>
+        <button className="close" onClick={onClose}>✕</button>
+        <h3 className="picker-title">เข้าสู่ระบบ / ซิงค์</h3>
+        {status === "sent" ? (
+          <p className="picker-ex">
+            ✅ ส่งลิงก์เข้าสู่ระบบไปที่ {email} แล้ว<br />
+            เปิดอีเมลแล้วกดลิงก์เพื่อเข้าสู่ระบบ (ลิงก์จะพากลับมาที่แอปนี้)
+          </p>
+        ) : (
+          <>
+            <p className="picker-hint" style={{ marginTop: 0 }}>
+              ใส่อีเมล → เราจะส่งลิงก์เข้าสู่ระบบให้ (ไม่ต้องตั้งรหัสผ่าน) เพื่อให้โปรแกรม/ที่ชอบของคุณซิงค์ทุกเครื่อง
+            </p>
+            <form onSubmit={submit}>
+              <input
+                className="search"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoFocus
+              />
+              <button className="picker-new" type="submit" disabled={status === "sending"} style={{ borderStyle: "solid", marginTop: 12 }}>
+                {status === "sending" ? "กำลังส่ง…" : "ส่งลิงก์เข้าสู่ระบบ"}
+              </button>
+            </form>
+            {status === "error" && <p className="state error">❌ {err}</p>}
+          </>
+        )}
+      </div>
     </div>
   );
 }
