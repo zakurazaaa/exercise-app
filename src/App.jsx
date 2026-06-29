@@ -88,7 +88,7 @@ export default function App() {
     return exercises.filter((ex) => {
       if (favOnly && !fav.isFav(ex.id)) return false;
       if (category && categorize(ex) !== category) return false;
-      if (q && !matchExercise(ex.name, thaiName(ex.name), q)) return false;
+      if (q && !matchExercise(ex, thaiName(ex.name), q)) return false;
       if (bodyPart && ex.body_part !== bodyPart) return false;
       if (equipment && ex.equipment !== equipment) return false;
       if (target && ex.target !== target) return false;
