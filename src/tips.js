@@ -190,3 +190,24 @@ export function getTips(ex) {
   const cat = categorize(ex);
   return TIPS[cat] || TIPS.general;
 }
+
+// หมวดสำหรับหน้า "หมวดหมู่" (เรียงตามความนิยม) พร้อมอีโมจิและป้ายไทย
+export const CATEGORIES = [
+  { key: "horizontalpress", label: "ดันราบ / อก", emoji: "🙌" },
+  { key: "pull", label: "ดึง / หลัง", emoji: "🪝" },
+  { key: "biceps", label: "แขนหน้า (ไบเซ็ป)", emoji: "💪" },
+  { key: "triceps", label: "แขนหลัง (ไตรเซ็ป)", emoji: "🔱" },
+  { key: "core", label: "หน้าท้อง / แกนกลาง", emoji: "🧘" },
+  { key: "squat", label: "สควอท", emoji: "🏋️" },
+  { key: "cardio", label: "คาร์ดิโอ", emoji: "🏃" },
+  { key: "shoulderraise", label: "ยกไหล่", emoji: "🤸" },
+  { key: "ohp", label: "ดันเหนือศีรษะ", emoji: "🆙" },
+  { key: "hinge", label: "พับสะโพก / เดดลิฟต์", emoji: "🍑" },
+  { key: "calf", label: "น่อง", emoji: "🦵" },
+  { key: "stretch", label: "ยืดเหยียด", emoji: "🤾" },
+  { key: "forearm", label: "แขนท่อนล่าง / ข้อมือ", emoji: "✊" },
+  { key: "lunge", label: "ลันจ์ / ก้าวขา", emoji: "🚶" },
+  { key: "legmachine", label: "เครื่องบริหารขา", emoji: "⚙️" },
+  { key: "traps", label: "กล้ามบ่า", emoji: "🧗" },
+  { key: "general", label: "ทั่วไป", emoji: "✨" },
+];
