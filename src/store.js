@@ -93,6 +93,25 @@ export function useUserData(user) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // ดึงข้อมูลล่าสุดจากคลาวด์ใหม่ (ใช้กับ pull-to-refresh)
+  async function refresh() {
+    if (!cloudEnabled || !user) return;
+    setSyncing(true);
+    try {
+      const { data } = await supabase
+        .from("user_data")
+        .select("data")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.data?.programs) {
+        skipNextPush.current = true;
+        setState(data.data);
+      }
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   function pushNow(data) {
     if (!cloudEnabled || !user) return;
     supabase
@@ -201,6 +220,7 @@ export function useUserData(user) {
 
   return {
     syncing,
+    refresh,
     fav: { isFav, toggle: toggleFav, count: state.favorites.length },
     streak: { count: streakState.count || 0, lastDate: streakState.lastDate || null, record: recordStretchSession },
     programs: {

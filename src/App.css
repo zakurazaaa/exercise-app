@@ -734,6 +734,20 @@ body {
 .fav-btn.fav-on, .rt-btn.rt-on { animation: pop 0.3s ease; }
 .fav-lg.fav-on, .rt-lg.rt-on { animation: pop 0.3s ease; }
 
+/* ---------- Pull to refresh ---------- */
+.ptr {
+  overflow: hidden;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.ptr-anim { transition: height 0.25s ease; }
+.ptr-inner {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 10px; color: var(--muted); font-size: 13px; white-space: nowrap;
+}
+.ptr-spin { font-size: 18px; display: inline-block; color: var(--accent); }
+.ptr-spin.spinning { animation: ptr-rot 0.7s linear infinite; }
+@keyframes ptr-rot { to { transform: rotate(360deg); } }
+
 /* ---------- Streak banner ---------- */
 .streak-banner {
   background: linear-gradient(90deg, rgba(255,90,60,0.16), rgba(46,197,211,0.12));

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadIndex, loadDetailsMap, uniqueValues, mediaUrl } from "./data";
 import { translateSteps } from "./translate";
 import { useUserData } from "./store";
@@ -31,6 +31,70 @@ function loadNames() {
   return namesPromise;
 }
 
+// Pull-to-refresh (มือถือ) — ดึงลงสุดบนสุดของหน้าเพื่อรีเฟรชข้อมูล
+function usePullToRefresh(onRefresh, enabled = true) {
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const cb = useRef(onRefresh);
+  cb.current = onRefresh;
+  const start = useRef(null);
+  const dragging = useRef(false);
+  const pullRef = useRef(0);
+  const refreshingRef = useRef(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const THRESHOLD = 70;
+    const MAX = 110;
+    const set = (v) => { pullRef.current = v; setPull(v); };
+
+    const onStart = (e) => {
+      if (refreshingRef.current || window.scrollY > 0) { start.current = null; return; }
+      start.current = e.touches[0].clientY;
+      dragging.current = false;
+    };
+    const onMove = (e) => {
+      if (refreshingRef.current || start.current == null) return;
+      const dy = e.touches[0].clientY - start.current;
+      if (dy > 0 && window.scrollY <= 0) {
+        dragging.current = true;
+        if (e.cancelable) e.preventDefault(); // กันหน้าจอเด้ง (rubber-band)
+        set(Math.min(MAX, dy * 0.5));
+      } else if (dy <= 0) {
+        dragging.current = false;
+        set(0);
+      }
+    };
+    const onEnd = async () => {
+      if (start.current == null) return;
+      start.current = null;
+      if (dragging.current && pullRef.current >= THRESHOLD) {
+        refreshingRef.current = true;
+        setRefreshing(true);
+        set(54);
+        try { await cb.current(); } catch { /* เงียบ */ }
+        setTimeout(() => { refreshingRef.current = false; setRefreshing(false); set(0); }, 450);
+      } else {
+        set(0);
+      }
+      dragging.current = false;
+    };
+
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    window.addEventListener("touchcancel", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("touchcancel", onEnd);
+    };
+  }, [enabled]);
+
+  return { pull, refreshing, dragging: dragging.current };
+}
+
 export default function App() {
   const [exercises, setExercises] = useState([]);
   const [status, setStatus] = useState("loading"); // loading | ready | error
@@ -47,15 +111,22 @@ export default function App() {
   const [favOnly, setFavOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
   const [toast, setToast] = useState(null);
+
+  const auth = useAuth();
+  const { fav, programs, syncing, streak, refresh } = useUserData(auth.user);
 
   const notify = (msg) => {
     setToast({ msg, t: (toast?.t || 0) + 1 });
   };
-  const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
 
-  const auth = useAuth();
-  const { fav, programs, syncing, streak } = useUserData(auth.user);
+  // pull-to-refresh: ดึงข้อมูลล่าสุดจากคลาวด์ (ปิดเมื่อมีโมดัลเปิดอยู่)
+  const onRefresh = async () => {
+    await refresh();
+    await new Promise((r) => setTimeout(r, 250));
+  };
+  const ptr = usePullToRefresh(onRefresh, !selected && !picker);
 
   const thaiName = (name) => nameMap[name] || thName(name);
 
@@ -137,6 +208,18 @@ export default function App() {
 
   return (
     <div className="app">
+      <div
+        className={"ptr" + (ptr.dragging ? "" : " ptr-anim")}
+        style={{ height: ptr.refreshing ? 48 : ptr.pull }}
+        aria-hidden={ptr.pull === 0 && !ptr.refreshing}
+      >
+        <div className="ptr-inner">
+          <span className={"ptr-spin" + (ptr.refreshing ? " spinning" : "")} style={{ transform: `rotate(${ptr.pull * 4}deg)` }}>↻</span>
+          <span className="ptr-text">
+            {ptr.refreshing ? "กำลังรีเฟรช…" : ptr.pull >= 70 ? "ปล่อยเพื่อรีเฟรช" : "ดึงลงเพื่อรีเฟรช"}
+          </span>
+        </div>
+      </div>
       <header className="header">
         <h1>💪 FitPedia <span className="brand-sub">คลังท่าออกกำลังกาย</span></h1>
         {auth.cloudEnabled && auth.user && (
@@ -918,3 +1001,4 @@ function StretchDone({ result, onClose }) {
     </div>
   );
 }
+
