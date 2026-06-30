@@ -490,7 +490,8 @@ function ProgramView({ items, thaiName, programs, onOpen }) {
 
 function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onToggleFav, inRoutine, onToggleRoutine, allExercises, thaiOf, onOpenExercise }) {
   const stretch = getStretch(ex);
-  const enSteps = detail?.instruction_steps?.en || [];
+  // ทำให้ identity คงที่ — กัน useEffect แปลข้างล่างรันซ้ำ/ยกเลิกตัวเองจน "กำลังแปล" ค้าง
+  const enSteps = useMemo(() => detail?.instruction_steps?.en || [], [detail]);
   const gif = detail?.gif_url;
   const secondary = detail?.secondary_muscles || [];
   const [lang, setLang] = useState("th");
@@ -498,14 +499,14 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
   const [tStatus, setTStatus] = useState("idle");
 
   useEffect(() => {
-    if (lang !== "th" || thSteps || tStatus === "loading" || enSteps.length === 0) return;
+    if (lang !== "th" || enSteps.length === 0) return;
     let cancelled = false;
     setTStatus("loading");
     translateSteps(enSteps)
       .then((th) => { if (!cancelled) { setThSteps(th); setTStatus("done"); } })
       .catch(() => !cancelled && setTStatus("error"));
     return () => { cancelled = true; };
-  }, [lang, thSteps, tStatus, enSteps]);
+  }, [lang, enSteps]);
 
   const showThai = lang === "th";
   const steps = showThai && thSteps ? thSteps : enSteps;
