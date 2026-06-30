@@ -13,6 +13,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false, // ลงทะเบียนเองใน main.jsx (เช็กอัปเดตเป็นระยะ + รีโหลดอัตโนมัติ)
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'th-steps.json', 'th-names.json'],
       manifest: {
         name: 'FitPedia — คลังท่าออกกำลังกาย',
