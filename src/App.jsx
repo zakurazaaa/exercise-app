@@ -45,6 +45,7 @@ export default function App() {
   const [target, setTarget] = useState("");
   const [category, setCategory] = useState("");
   const [favOnly, setFavOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState(null);
   const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
 
@@ -196,31 +197,44 @@ export default function App() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <div className="filters">
-              <select value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
-                <option value="">ส่วนของร่างกาย (ทั้งหมด)</option>
-                {bodyParts.flatMap((v) =>
-                  v === "upper arms"
-                    ? [
-                        <option key="m:biceps" value="m:biceps">แขนหน้า (ไบเซ็ป)</option>,
-                        <option key="m:triceps" value="m:triceps">แขนหลัง (ไตรเซ็ป)</option>,
-                      ]
-                    : [<option key={v} value={v}>{thBody(v)}</option>]
-                )}
-              </select>
-              <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
-                <option value="">อุปกรณ์ (ทั้งหมด)</option>
-                {equipments.map((v) => (<option key={v} value={v}>{thEquip(v)}</option>))}
-              </select>
-              <select value={target} onChange={(e) => setTarget(e.target.value)}>
-                <option value="">กล้ามเนื้อเป้าหมาย (ทั้งหมด)</option>
-                {targets.map((v) => (<option key={v} value={v}>{thMuscle(v)}</option>))}
-              </select>
-              <button className={"chip" + (favOnly ? " chip-active" : "")} onClick={() => setFavOnly((v) => !v)}>
-                {favOnly ? "★" : "☆"} เฉพาะที่ชอบ ({fav.count})
+            <div className="filter-bar">
+              <button
+                className={"filter-toggle" + (showFilters ? " ft-open" : "")}
+                onClick={() => setShowFilters((v) => !v)}
+              >
+                🎚️ ตัวกรอง{[bodyPart, equipment, target].filter(Boolean).length > 0 ? ` (${[bodyPart, equipment, target].filter(Boolean).length})` : ""}
+                <span className="ft-caret">{showFilters ? "▲" : "▼"}</span>
               </button>
-              <button className="reset" onClick={resetFilters}>ล้างตัวกรอง</button>
+              <button className={"chip" + (favOnly ? " chip-active" : "")} onClick={() => setFavOnly((v) => !v)}>
+                {favOnly ? "★" : "☆"} ที่ชอบ ({fav.count})
+              </button>
+              {(bodyPart || equipment || target || favOnly || category) && (
+                <button className="reset" onClick={resetFilters}>ล้าง</button>
+              )}
             </div>
+            {showFilters && (
+              <div className="filters filters-panel">
+                <select value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
+                  <option value="">ส่วนของร่างกาย (ทั้งหมด)</option>
+                  {bodyParts.flatMap((v) =>
+                    v === "upper arms"
+                      ? [
+                          <option key="m:biceps" value="m:biceps">แขนหน้า (ไบเซ็ป)</option>,
+                          <option key="m:triceps" value="m:triceps">แขนหลัง (ไตรเซ็ป)</option>,
+                        ]
+                      : [<option key={v} value={v}>{thBody(v)}</option>]
+                  )}
+                </select>
+                <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
+                  <option value="">อุปกรณ์ (ทั้งหมด)</option>
+                  {equipments.map((v) => (<option key={v} value={v}>{thEquip(v)}</option>))}
+                </select>
+                <select value={target} onChange={(e) => setTarget(e.target.value)}>
+                  <option value="">กล้ามเนื้อเป้าหมาย (ทั้งหมด)</option>
+                  {targets.map((v) => (<option key={v} value={v}>{thMuscle(v)}</option>))}
+                </select>
+              </div>
+            )}
             {category && (
               <div className="active-cat">
                 หมวด: <strong>{activeCatLabel}</strong>
@@ -618,8 +632,7 @@ function StretchTimer({ seconds, autoStart = false, onDone, compact = false }) {
 
 function StretchBox({ stretch }) {
   return (
-    <div className="stretch-box">
-      <h4>🧘 วิธียืด & เวลาค้าง <span className="stretch-type">{stretch.typeLabel}</span></h4>
+    <Collapsible icon="🧘" title="วิธียืด & เวลาค้าง" sub={stretch.typeLabel} accent="#2ec5d3" defaultOpen>
       <div className="stretch-dose">
         <span className="dose-chip">{stretch.timingEmoji} {stretch.timingLabel}</span>
         <span className="dose-chip">⏳ {stretch.hold}</span>
@@ -632,7 +645,7 @@ function StretchBox({ stretch }) {
       <p className="translate-note">
         * ยืดมัดหลัก ≥2–3 วัน/สัปดาห์ (ทุกวันยิ่งดี) — การยืดช่วยเรื่องความยืดหยุ่น ไม่ใช่เพิ่มกล้าม/แรงหรือกันบาดเจ็บ
       </p>
-    </div>
+    </Collapsible>
   );
 }
 
@@ -646,8 +659,7 @@ function StretchSuggest({ ex, all, thaiOf, onOpen }) {
   }, [all, ex]);
   if (picks.length === 0) return null;
   return (
-    <div className="suggest">
-      <h4>🧘 ยืดกล้ามมัดนี้หลังเล่น</h4>
+    <Collapsible icon="🧘" title="ยืดกล้ามมัดนี้หลังเล่น" accent="#2ec5d3">
       <div className="suggest-row">
         {picks.map((s) => (
           <button key={s.id} className="suggest-chip" onClick={() => onOpen && onOpen(s)}>
@@ -656,6 +668,20 @@ function StretchSuggest({ ex, all, thaiOf, onOpen }) {
           </button>
         ))}
       </div>
+    </Collapsible>
+  );
+}
+
+// กล่องยุบได้ (accordion) — ปิดไว้ก่อนเพื่อไม่ให้โมดัลยาวเกิน
+function Collapsible({ icon, title, sub, accent, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={"acc" + (open ? " acc-open" : "")} style={accent ? { borderLeftColor: accent } : undefined}>
+      <button type="button" className="acc-head" onClick={() => setOpen((o) => !o)}>
+        <span className="acc-title">{icon} {title}{sub && <span className="acc-sub"> {sub}</span>}</span>
+        <span className="acc-chevron">{open ? "−" : "+"}</span>
+      </button>
+      {open && <div className="acc-body">{children}</div>}
     </div>
   );
 }
@@ -664,30 +690,28 @@ function SetupBox({ ex }) {
   const setup = getSetup(ex);
   if (!setup) return null;
   return (
-    <div className="setup">
-      <h4>⚙️ การตั้งเครื่องก่อนเริ่ม <span className="setup-cat">({setup.label})</span></h4>
+    <Collapsible icon="⚙️" title="การตั้งเครื่องก่อนเริ่ม" sub={`(${setup.label})`} accent="#34c759">
       <ul className="setup-list">
         {setup.items.map((s, i) => (<li key={i}>{s}</li>))}
       </ul>
       <p className="translate-note">
         * ตำแหน่งเบาะอ้างกับจุดบนร่างกาย เพราะแต่ละยี่ห้อต่างกัน — ดูสติกเกอร์/คู่มือบนเครื่องประกอบ
       </p>
-    </div>
+    </Collapsible>
   );
 }
 
 function TipsBox({ ex }) {
   const tips = getTips(ex);
   return (
-    <div className="tips">
-      <h4>💡 เคล็ดลับ & ข้อควรระวัง <span className="tips-cat">({tips.label})</span></h4>
+    <Collapsible icon="💡" title="เคล็ดลับ & ข้อควรระวัง" sub={`(${tips.label})`} accent="var(--accent)">
       <ul className="tips-list">
         {tips.items.map((t, i) => (<li key={i}>{t}</li>))}
       </ul>
       <p className="translate-note">
         * คำแนะนำทั่วไปตามหมวดการเคลื่อนไหว — หากเพิ่งเริ่มหรือมีอาการบาดเจ็บ ควรปรึกษาผู้เชี่ยวชาญ
       </p>
-    </div>
+    </Collapsible>
   );
 }
 
