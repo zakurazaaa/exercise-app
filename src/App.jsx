@@ -48,24 +48,24 @@ function usePullToRefresh(onRefresh, enabled = true) {
     const MAX = 110;
     const set = (v) => { pullRef.current = v; setPull(v); };
 
-    const onStart = (e) => {
+    const begin = (y) => {
       if (refreshingRef.current || window.scrollY > 0) { start.current = null; return; }
-      start.current = e.touches[0].clientY;
+      start.current = y;
       dragging.current = false;
     };
-    const onMove = (e) => {
+    const move = (y, e) => {
       if (refreshingRef.current || start.current == null) return;
-      const dy = e.touches[0].clientY - start.current;
+      const dy = y - start.current;
       if (dy > 0 && window.scrollY <= 0) {
         dragging.current = true;
-        if (e.cancelable) e.preventDefault(); // กันหน้าจอเด้ง (rubber-band)
+        if (e && e.cancelable) e.preventDefault(); // กันหน้าจอเด้ง / เลือกข้อความ
         set(Math.min(MAX, dy * 0.5));
       } else if (dy <= 0) {
         dragging.current = false;
         set(0);
       }
     };
-    const onEnd = async () => {
+    const end = async () => {
       if (start.current == null) return;
       start.current = null;
       if (dragging.current && pullRef.current >= THRESHOLD) {
@@ -80,15 +80,28 @@ function usePullToRefresh(onRefresh, enabled = true) {
       dragging.current = false;
     };
 
-    window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("touchend", onEnd, { passive: true });
-    window.addEventListener("touchcancel", onEnd, { passive: true });
+    // touch (มือถือ)
+    const onTS = (e) => begin(e.touches[0].clientY);
+    const onTM = (e) => move(e.touches[0].clientY, e);
+    // mouse (ให้เทสต์บนเดสก์ท็อปได้ด้วยการลากเมาส์)
+    const onMD = (e) => { if (e.button === 0) begin(e.clientY); };
+    const onMM = (e) => { if (start.current != null && e.buttons === 1) move(e.clientY, e); };
+
+    window.addEventListener("touchstart", onTS, { passive: true });
+    window.addEventListener("touchmove", onTM, { passive: false });
+    window.addEventListener("touchend", end, { passive: true });
+    window.addEventListener("touchcancel", end, { passive: true });
+    window.addEventListener("mousedown", onMD, { passive: true });
+    window.addEventListener("mousemove", onMM, { passive: false });
+    window.addEventListener("mouseup", end, { passive: true });
     return () => {
-      window.removeEventListener("touchstart", onStart);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onEnd);
-      window.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("touchstart", onTS);
+      window.removeEventListener("touchmove", onTM);
+      window.removeEventListener("touchend", end);
+      window.removeEventListener("touchcancel", end);
+      window.removeEventListener("mousedown", onMD);
+      window.removeEventListener("mousemove", onMM);
+      window.removeEventListener("mouseup", end);
     };
   }, [enabled]);
 
