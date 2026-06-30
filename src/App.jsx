@@ -89,7 +89,12 @@ export default function App() {
       if (favOnly && !fav.isFav(ex.id)) return false;
       if (category && categorize(ex) !== category) return false;
       if (q && !matchExercise(ex, thaiName(ex.name), q)) return false;
-      if (bodyPart && ex.body_part !== bodyPart) return false;
+      if (bodyPart) {
+        // "m:biceps"/"m:triceps" = แยกแขนหน้า/แขนหลังจากแขนท่อนบน
+        if (bodyPart.startsWith("m:")) {
+          if (ex.target !== bodyPart.slice(2)) return false;
+        } else if (ex.body_part !== bodyPart) return false;
+      }
       if (equipment && ex.equipment !== equipment) return false;
       if (target && ex.target !== target) return false;
       return true;
@@ -185,7 +190,14 @@ export default function App() {
             <div className="filters">
               <select value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
                 <option value="">ส่วนของร่างกาย (ทั้งหมด)</option>
-                {bodyParts.map((v) => (<option key={v} value={v}>{thBody(v)}</option>))}
+                {bodyParts.flatMap((v) =>
+                  v === "upper arms"
+                    ? [
+                        <option key="m:biceps" value="m:biceps">แขนหน้า (ไบเซ็ป)</option>,
+                        <option key="m:triceps" value="m:triceps">แขนหลัง (ไตรเซ็ป)</option>,
+                      ]
+                    : [<option key={v} value={v}>{thBody(v)}</option>]
+                )}
               </select>
               <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
                 <option value="">อุปกรณ์ (ทั้งหมด)</option>
