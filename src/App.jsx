@@ -7,6 +7,7 @@ import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
 import { getSetup } from "./setup";
 import { getStretch, isStretch, stretchType } from "./stretch";
+import { fetchLog, addSet, deleteSet, todayISO, epley1RM, totalVolume, computePR, groupByDate, stepFor, convertWeight } from "./log";
 import { matchExercise } from "./search";
 import "./App.css";
 
@@ -128,7 +129,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   const auth = useAuth();
-  const { fav, programs, syncing, streak, refresh } = useUserData(auth.user);
+  const { fav, programs, syncing, streak, refresh, unit, setUnit } = useUserData(auth.user);
 
   const notify = (msg) => {
     setToast({ msg, t: (toast?.t || 0) + 1 });
@@ -365,6 +366,10 @@ export default function App() {
           allExercises={exercises}
           thaiOf={thaiName}
           onOpenExercise={setSelected}
+          userId={auth.user?.id}
+          unit={unit}
+          setUnit={setUnit}
+          notify={notify}
         />
       )}
 
@@ -618,7 +623,7 @@ function ProgramView({ items, thaiName, programs, onOpen }) {
   );
 }
 
-function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onToggleFav, inRoutine, onToggleRoutine, allExercises, thaiOf, onOpenExercise }) {
+function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onToggleFav, inRoutine, onToggleRoutine, allExercises, thaiOf, onOpenExercise, userId, unit, setUnit, notify }) {
   const stretch = getStretch(ex);
   // ทำให้ identity คงที่ — กัน useEffect แปลข้างล่างรันซ้ำ/ยกเลิกตัวเองจน "กำลังแปล" ค้าง
   const enSteps = useMemo(() => detail?.instruction_steps?.en || [], [detail]);
@@ -679,6 +684,9 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(secondary).join(", ")}</p>
           )}
 
+          {!stretch && (
+            <LogPanel ex={ex} userId={userId} unit={unit} setUnit={setUnit} notify={notify} />
+          )}
           {stretch ? <StretchBox stretch={stretch} /> : <SetupBox ex={ex} />}
 
           <div className="steps-head">
@@ -1011,6 +1019,258 @@ function StretchDone({ result, onClose }) {
           : "วันนี้ยืดไปแล้ว เยี่ยมที่กลับมาทำซ้ำ 👍"}
       </p>
       <button className="play-btn done-btn" onClick={onClose}>เสร็จสิ้น</button>
+    </div>
+  );
+}
+
+// ---------- บันทึกการเล่น ----------
+function fmtNum(n) {
+  if (n == null || n === "") return "";
+  const r = Math.round(Number(n) * 100) / 100;
+  return String(r);
+}
+// ป้ายสรุปเซ็ต (น้ำหนักเก็บเป็น kg แปลงตามหน่วยที่เลือก)
+function setLabel(s, unit) {
+  if (s.duration_sec) {
+    const m = Math.floor(s.duration_sec / 60), sec = s.duration_sec % 60;
+    return m + ":" + String(sec).padStart(2, "0");
+  }
+  const w = s.weight != null ? fmtNum(convertWeight(s.weight, "kg", unit)) + unit : "BW";
+  return w + "×" + (s.reps ?? "-");
+}
+
+function Sparkline({ values }) {
+  if (values.length < 2) return null;
+  const w = 240, h = 44, pad = 4;
+  const min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
+  const pts = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return x.toFixed(1) + "," + y.toFixed(1);
+  }).join(" ");
+  return (
+    <svg className="spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke="#2ec5d3" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function RestTimer({ seconds, onClose }) {
+  const [left, setLeft] = useState(seconds);
+  useEffect(() => {
+    if (left <= 0) {
+      try { navigator.vibrate && navigator.vibrate([90, 50, 90]); } catch { /* ไม่รองรับ */ }
+      return;
+    }
+    const t = setTimeout(() => setLeft((l) => l - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left]);
+  const m = Math.floor(left / 60), s = left % 60;
+  return (
+    <div className="rest">
+      <span className="rest-t">⏱️ พัก {m}:{String(s).padStart(2, "0")}</span>
+      <button onClick={() => setLeft((l) => l + 15)}>+15</button>
+      <button onClick={onClose}>ข้าม</button>
+    </div>
+  );
+}
+
+function LogPanel({ ex, userId, unit, setUnit, notify }) {
+  const isCardio = (ex.target || "").toLowerCase() === "cardiovascular system" || (ex.body_part || "") === "cardio";
+  const eq = (ex.equipment || "").toLowerCase();
+  const isBW = ["body weight", "assisted", "band", "resistance band"].includes(eq);
+  const [log, setLog] = useState(null);
+  const [err, setErr] = useState("");
+  const [weight, setWeight] = useState("");
+  const [reps, setReps] = useState("");
+  const [dur, setDur] = useState("");
+  const [type, setType] = useState("working");
+  const [rpe, setRpe] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [rest, setRest] = useState(0);
+  const [showHist, setShowHist] = useState(false);
+  const prefilled = useRef(false);
+
+  useEffect(() => {
+    let cancel = false;
+    setLog(null);
+    prefilled.current = false;
+    fetchLog(userId, ex.id)
+      .then((d) => { if (!cancel) setLog(d); })
+      .catch((e) => { if (!cancel) { setErr(e.message || "โหลดประวัติไม่สำเร็จ"); setLog([]); } });
+    return () => { cancel = true; };
+  }, [userId, ex.id]);
+
+  const today = todayISO();
+  const sessions = useMemo(() => groupByDate(log || []), [log]);
+  const todaySets = useMemo(() => (log || []).filter((s) => s.date === today).sort((a, b) => a.set_index - b.set_index), [log, today]);
+  const lastSession = useMemo(() => sessions.find((s) => s.date !== today), [sessions, today]);
+  const pr = useMemo(() => computePR(log || []), [log]);
+
+  // prefill ครั้งเดียวหลังโหลด จากเซ็ตล่าสุด
+  useEffect(() => {
+    if (log == null || prefilled.current) return;
+    prefilled.current = true;
+    const src = todaySets.length ? todaySets[todaySets.length - 1] : (lastSession ? lastSession.sets[lastSession.sets.length - 1] : null);
+    if (src) {
+      if (src.weight != null) setWeight(fmtNum(convertWeight(src.weight, "kg", unit)));
+      if (src.reps != null) setReps(String(src.reps));
+    }
+  }, [log, todaySets, lastSession, unit]);
+
+  const stepW = stepFor(unit);
+  const bump = (setter, val, d) => setter(() => fmtNum(Math.max(0, (parseFloat(val) || 0) + d)));
+
+  const add = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const row = { exercise_id: ex.id, exercise_name: ex.name, date: today, set_index: todaySets.length, unit: "kg", type };
+      if (isCardio) {
+        row.duration_sec = Math.round((parseFloat(dur) || 0) * 60);
+        if (!row.duration_sec) { notify("ใส่เวลาก่อน"); setSaving(false); return; }
+      } else {
+        const wNum = weight === "" ? null : parseFloat(weight);
+        row.weight = wNum == null ? null : convertWeight(wNum, unit, "kg"); // เก็บเป็น kg
+        row.reps = reps === "" ? null : parseInt(reps, 10);
+        if (!row.reps) { notify("ใส่จำนวนครั้งก่อน"); setSaving(false); return; }
+      }
+      if (rpe !== "") row.rpe = parseFloat(rpe);
+      const prevPR = pr;
+      const saved = await addSet(userId, row);
+      setLog((l) => [saved, ...(l || [])]);
+      if (!isCardio) {
+        const e = epley1RM(row.weight, row.reps);
+        if ((row.weight || 0) > prevPR.maxWeight && prevPR.maxWeight > 0) notify("🎉 สถิติน้ำหนักใหม่!");
+        else if (e > prevPR.maxE1RM && prevPR.maxE1RM > 0) notify("🎉 สถิติ 1RM ใหม่!");
+        else notify("บันทึกเซ็ตแล้ว ✓");
+        setRest(90);
+      } else notify("บันทึกแล้ว ✓");
+    } catch (e) {
+      notify("บันทึกไม่สำเร็จ — สร้าง table แล้วหรือยัง?");
+      setErr(e.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeSet = async (id) => {
+    try { await deleteSet(id); setLog((l) => l.filter((s) => s.id !== id)); }
+    catch { notify("ลบไม่สำเร็จ"); }
+  };
+
+  if (!userId) return null;
+  const todayVol = totalVolume(todaySets);
+  const trend = [...sessions].reverse().map((s) => s.best1RM).filter((v) => v > 0);
+
+  return (
+    <div className="logbox">
+      <div className="log-head">
+        <h4>📝 บันทึกการเล่น</h4>
+        <div className="unit-toggle">
+          <button className={unit === "kg" ? "on" : ""} onClick={() => setUnit("kg")}>kg</button>
+          <button className={unit === "lb" ? "on" : ""} onClick={() => setUnit("lb")}>lb</button>
+        </div>
+      </div>
+
+      {log == null ? (
+        <p className="translating">⏳ กำลังโหลดประวัติ…</p>
+      ) : (
+        <>
+          {(pr.maxWeight > 0 || pr.maxE1RM > 0) && (
+            <div className="pr-row">
+              {pr.maxWeight > 0 && <span className="pr-badge">🏆 หนักสุด {fmtNum(convertWeight(pr.maxWeight, "kg", unit))}{unit}</span>}
+              {pr.maxE1RM > 0 && <span className="pr-badge">💪 1RM ~{fmtNum(convertWeight(pr.maxE1RM, "kg", unit))}{unit}</span>}
+            </div>
+          )}
+
+          {lastSession && (
+            <p className="last-sess">ครั้งก่อน ({lastSession.date}): {lastSession.sets.map((s) => setLabel(s, unit)).join(", ")}</p>
+          )}
+
+          {todaySets.length > 0 && (
+            <ul className="today-sets">
+              {todaySets.map((s, i) => (
+                <li key={s.id}>
+                  <span className="ts-i">{i + 1}</span>
+                  <span className="ts-v">{setLabel(s, unit)}{s.rpe ? ` · RPE ${s.rpe}` : ""}{s.type && s.type !== "working" ? ` · ${s.type}` : ""}</span>
+                  <button className="ts-x" onClick={() => removeSet(s.id)}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {rest > 0 && <RestTimer key={rest} seconds={rest} onClose={() => setRest(0)} />}
+
+          <div className="log-form">
+            {isCardio ? (
+              <div className="field">
+                <label>เวลา (นาที)</label>
+                <input type="number" inputMode="decimal" value={dur} onChange={(e) => setDur(e.target.value)} placeholder="เช่น 10" />
+              </div>
+            ) : (
+              <>
+                <div className="field">
+                  <label>{isBW ? "น้ำหนักเพิ่ม" : "น้ำหนัก"} ({unit})</label>
+                  <div className="stepper">
+                    <button onClick={() => bump(setWeight, weight, -stepW)}>−</button>
+                    <input type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={isBW ? "0" : "–"} />
+                    <button onClick={() => bump(setWeight, weight, stepW)}>+</button>
+                  </div>
+                </div>
+                <div className="field">
+                  <label>ครั้ง (reps)</label>
+                  <div className="stepper">
+                    <button onClick={() => bump(setReps, reps, -1)}>−</button>
+                    <input type="number" inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)} placeholder="–" />
+                    <button onClick={() => bump(setReps, reps, 1)}>+</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {!isCardio && (
+            <div className="log-meta">
+              <div className="type-chips">
+                {[["working", "หลัก"], ["warmup", "วอร์ม"], ["drop", "ดรอป"]].map(([k, l]) => (
+                  <button key={k} className={"tc" + (type === k ? " tc-on" : "")} onClick={() => setType(k)}>{l}</button>
+                ))}
+              </div>
+              <input className="rpe-in" type="number" inputMode="decimal" value={rpe} onChange={(e) => setRpe(e.target.value)} placeholder="RPE" />
+            </div>
+          )}
+
+          <button className="log-add" disabled={saving} onClick={add}>{saving ? "กำลังบันทึก…" : "＋ บันทึกเซ็ต"}</button>
+
+          {todaySets.length > 0 && !isCardio && (
+            <p className="today-sum">วันนี้: {todaySets.length} เซ็ต · ปริมาตร {fmtNum(convertWeight(todayVol, "kg", unit))} {unit}</p>
+          )}
+
+          {sessions.length > 0 && (
+            <div className="hist">
+              <button className="hist-toggle" onClick={() => setShowHist((v) => !v)}>
+                📈 ประวัติ ({sessions.length} วัน) {showHist ? "▲" : "▼"}
+              </button>
+              {showHist && (
+                <div className="hist-body">
+                  {trend.length >= 2 && <Sparkline values={trend} />}
+                  <ul className="hist-list">
+                    {sessions.map((s) => (
+                      <li key={s.date}>
+                        <span className="h-date">{s.date}</span>
+                        <span className="h-sets">{s.sets.map((x) => setLabel(x, unit)).join(", ")}</span>
+                        {s.volume > 0 && <span className="h-vol">{fmtNum(convertWeight(s.volume, "kg", unit))}{unit}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+          {err && <p className="log-err">⚠️ {err}</p>}
+        </>
+      )}
     </div>
   );
 }

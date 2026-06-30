@@ -39,7 +39,7 @@ function readLocal() {
     programs = [{ id, name: "โปรแกรมของฉัน", ids: [] }];
     activeId = id;
   }
-  return { programs, activeId, favorites, streak: { count: 0, lastDate: null } };
+  return { programs, activeId, favorites, streak: { count: 0, lastDate: null }, unit: "kg" };
 }
 
 // วันที่แบบ local "YYYY-MM-DD"
@@ -218,9 +218,13 @@ export function useUserData(user) {
     return { count, incremented: !alreadyToday, alreadyToday };
   }
 
+  const setUnit = useCallback((u) => setState((s) => ({ ...s, unit: u })), []);
+
   return {
     syncing,
     refresh,
+    unit: state.unit || "kg",
+    setUnit,
     fav: { isFav, toggle: toggleFav, count: state.favorites.length },
     streak: { count: streakState.count || 0, lastDate: streakState.lastDate || null, record: recordStretchSession },
     programs: {
