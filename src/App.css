@@ -176,8 +176,8 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 12px;
 }
 .card {
   text-align: left;
@@ -352,10 +352,11 @@ body {
 }
 
 .card-body { padding: 10px 12px 14px; }
+.card-body { padding: 8px 10px 12px; }
 .card-body h3 {
   margin: 0 0 2px;
-  font-size: 16px;
-  line-height: 1.35;
+  font-size: 14px;
+  line-height: 1.3;
   font-weight: 700;
 }
 .th-name {
@@ -418,7 +419,7 @@ body {
 }
 .gif {
   width: 100%;
-  max-height: 300px;
+  max-height: 230px;
   object-fit: contain;
   background: #eef0f3;
   display: block;
@@ -473,19 +474,19 @@ body {
 }
 .picker-hint { margin: 10px 4px 0; font-size: 12px; color: var(--muted); }
 
-.modal-content { padding: 18px 20px 24px; }
-.modal-content h2 { margin: 0; text-transform: capitalize; }
+.modal-content { padding: 14px 16px 20px; }
+.modal-content h2 { margin: 0; font-size: 20px; line-height: 1.3; }
 .modal-title {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .modal-title .th-name { margin-top: 4px; }
-.muscles { color: var(--muted); font-size: 14px; }
-.steps { padding-left: 20px; line-height: 1.6; }
-.steps li { margin-bottom: 8px; }
+.muscles { color: var(--muted); font-size: 13px; margin: 6px 0; }
+.steps { padding-left: 18px; line-height: 1.5; font-size: 14px; }
+.steps li { margin-bottom: 6px; }
 
 .steps-head {
   display: flex;
