@@ -55,7 +55,7 @@ export default function App() {
   const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
 
   const auth = useAuth();
-  const { fav, programs, syncing } = useUserData(auth.user);
+  const { fav, programs, syncing, streak } = useUserData(auth.user);
 
   const thaiName = (name) => nameMap[name] || thName(name);
 
@@ -163,7 +163,7 @@ export default function App() {
       )}
 
       {status === "ready" && view === "stretch" && (
-        <StretchView exercises={exercises} thaiName={thaiName} onOpen={setSelected} />
+        <StretchView exercises={exercises} thaiName={thaiName} onOpen={setSelected} streak={streak} />
       )}
 
       {status === "ready" && view === "program" && (
@@ -761,7 +761,7 @@ function TipsBox({ ex }) {
 }
 
 // หน้า "ยืดเหยียด" — เลือกโหมด (อุ่นเครื่อง/คูลดาวน์) + ส่วนของร่างกาย แล้วยืดทีละท่าพร้อมจับเวลา
-function StretchView({ exercises, thaiName, onOpen }) {
+function StretchView({ exercises, thaiName, onOpen, streak }) {
   const [mode, setMode] = useState("static"); // static = คูลดาวน์ | dynamic = อุ่นเครื่อง
   const [areas, setAreas] = useState([]); // body_part[]; ว่าง = ทั้งตัว
   const [player, setPlayer] = useState(null);
@@ -783,10 +783,13 @@ function StretchView({ exercises, thaiName, onOpen }) {
     setAreas((xs) => (xs.includes(a) ? xs.filter((x) => x !== a) : [...xs, a]));
 
   if (player)
-    return <StretchPlayer list={player} thaiName={thaiName} onClose={() => setPlayer(null)} />;
+    return <StretchPlayer list={player} thaiName={thaiName} streak={streak} onClose={() => setPlayer(null)} />;
 
   return (
     <div className="stretch-view">
+      {streak?.count > 0 && (
+        <div className="streak-banner">🔥 ยืดต่อเนื่อง <strong>{streak.count}</strong> วัน — รักษาให้ต่อเนื่องนะ!</div>
+      )}
       <div className="stretch-modes">
         <button className={"mode-btn" + (mode === "dynamic" ? " mode-on" : "")} onClick={() => setMode("dynamic")}>
           🔥 อุ่นเครื่อง (Dynamic)
@@ -839,13 +842,25 @@ function StretchView({ exercises, thaiName, onOpen }) {
 }
 
 // เครื่องเล่นยืดทีละท่า — จับเวลานับถอยหลังอัตโนมัติ แล้วไปท่าถัดไป
-function StretchPlayer({ list, thaiName, onClose }) {
+function StretchPlayer({ list, thaiName, streak, onClose }) {
   const [i, setI] = useState(0);
+  const [result, setResult] = useState(null); // ผลลัพธ์เมื่อจบ session
   const ex = list[i];
   const info = getStretch(ex);
   const isLast = i >= list.length - 1;
   const next = () => setI((x) => Math.min(x + 1, list.length - 1));
   const prev = () => setI((x) => Math.max(x - 1, 0));
+
+  const finish = () => {
+    const seconds = list.reduce((a, e) => {
+      const s = getStretch(e);
+      return a + (s && s.holdSeconds > 0 ? s.holdSeconds : 30);
+    }, 0);
+    const st = streak ? streak.record() : { count: 0, incremented: false, alreadyToday: false };
+    setResult({ count: list.length, seconds, streak: st });
+  };
+
+  if (result) return <StretchDone result={result} onClose={onClose} />;
 
   return (
     <div className="player">
@@ -868,11 +883,38 @@ function StretchPlayer({ list, thaiName, onClose }) {
       <div className="player-nav">
         <button onClick={prev} disabled={i === 0}>← ก่อนหน้า</button>
         {isLast ? (
-          <button className="play-btn" onClick={onClose}>✓ เสร็จสิ้น</button>
+          <button className="play-btn" onClick={finish}>✓ เสร็จสิ้น</button>
         ) : (
           <button className="play-btn" onClick={next}>ถัดไป →</button>
         )}
       </div>
+    </div>
+  );
+}
+
+// หน้าจบ session ยืด — ฉลอง + แสดง streak
+function StretchDone({ result, onClose }) {
+  const mins = Math.max(1, Math.round(result.seconds / 60));
+  const s = result.streak;
+  return (
+    <div className="done">
+      <div className="confetti" aria-hidden="true">
+        {Array.from({ length: 14 }).map((_, i) => (<span key={i} className={"cf cf" + (i % 7)} />))}
+      </div>
+      <div className="done-emoji">🎉</div>
+      <h2 className="done-title">เยี่ยมมาก!</h2>
+      <p className="done-sub">คุณยืดครบแล้ว</p>
+      <div className="done-stats">
+        <div className="done-stat"><span className="ds-num">{result.count}</span><span className="ds-label">ท่า</span></div>
+        <div className="done-stat"><span className="ds-num">~{mins}</span><span className="ds-label">นาที</span></div>
+        <div className="done-stat"><span className="ds-num">🔥 {s.count}</span><span className="ds-label">วันต่อเนื่อง</span></div>
+      </div>
+      <p className="done-streak">
+        {s.incremented
+          ? (s.count === 1 ? "เริ่มสตรีคใหม่! กลับมายืดพรุ่งนี้เพื่อต่อให้ยาว 💪" : `ต่อเนื่องเป็นวันที่ ${s.count} แล้ว — สุดยอด! 🔥`)
+          : "วันนี้ยืดไปแล้ว เยี่ยมที่กลับมาทำซ้ำ 👍"}
+      </p>
+      <button className="play-btn done-btn" onClick={onClose}>เสร็จสิ้น</button>
     </div>
   );
 }

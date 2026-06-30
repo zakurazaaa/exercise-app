@@ -39,8 +39,18 @@ function readLocal() {
     programs = [{ id, name: "โปรแกรมของฉัน", ids: [] }];
     activeId = id;
   }
-  return { programs, activeId, favorites };
+  return { programs, activeId, favorites, streak: { count: 0, lastDate: null } };
 }
+
+// วันที่แบบ local "YYYY-MM-DD"
+const dayStr = (d) =>
+  d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const todayStr = () => dayStr(new Date());
+const yesterdayStr = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return dayStr(d);
+};
 
 export function useUserData(user) {
   const [state, setState] = useState(readLocal);
@@ -174,9 +184,25 @@ export function useUserData(user) {
   const inAny = useCallback((exId) => programs.some((p) => p.ids.includes(exId)), [programs]);
   const inActive = useCallback((exId) => !!active && active.ids.includes(exId), [active]);
 
+  // ---------- streak (ยืดต่อเนื่องกี่วัน) ----------
+  const streakState = state.streak || { count: 0, lastDate: null };
+  // บันทึกว่าทำ session ยืดวันนี้ — คืน { count, incremented, alreadyToday }
+  function recordStretchSession() {
+    const cur = state.streak || { count: 0, lastDate: null };
+    const today = todayStr();
+    const alreadyToday = cur.lastDate === today;
+    let count;
+    if (alreadyToday) count = cur.count || 1;
+    else if (cur.lastDate === yesterdayStr()) count = (cur.count || 0) + 1;
+    else count = 1;
+    setState((s) => ({ ...s, streak: { count, lastDate: today } }));
+    return { count, incremented: !alreadyToday, alreadyToday };
+  }
+
   return {
     syncing,
     fav: { isFav, toggle: toggleFav, count: state.favorites.length },
+    streak: { count: streakState.count || 0, lastDate: streakState.lastDate || null, record: recordStretchSession },
     programs: {
       programs, active, activeId, programCount: programs.length,
       setActive, create, createWith, rename, removeProgram,
