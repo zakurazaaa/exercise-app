@@ -5,6 +5,7 @@ import { useUserData } from "./store";
 import { useAuth } from "./auth";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
+import { getSetup } from "./setup";
 import { matchExercise } from "./search";
 import "./App.css";
 
@@ -535,6 +536,8 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(secondary).join(", ")}</p>
           )}
 
+          <SetupBox ex={ex} />
+
           <div className="steps-head">
             <h4>วิธีทำ</h4>
             <div className="lang-toggle">
@@ -558,6 +561,22 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
           <TipsBox ex={ex} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function SetupBox({ ex }) {
+  const setup = getSetup(ex);
+  if (!setup) return null;
+  return (
+    <div className="setup">
+      <h4>⚙️ การตั้งเครื่องก่อนเริ่ม <span className="setup-cat">({setup.label})</span></h4>
+      <ul className="setup-list">
+        {setup.items.map((s, i) => (<li key={i}>{s}</li>))}
+      </ul>
+      <p className="translate-note">
+        * ตำแหน่งเบาะอ้างกับจุดบนร่างกาย เพราะแต่ละยี่ห้อต่างกัน — ดูสติกเกอร์/คู่มือบนเครื่องประกอบ
+      </p>
     </div>
   );
 }
