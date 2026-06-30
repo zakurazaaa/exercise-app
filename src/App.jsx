@@ -47,6 +47,11 @@ export default function App() {
   const [favOnly, setFavOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const notify = (msg) => {
+    setToast({ msg, t: (toast?.t || 0) + 1 });
+  };
   const [picker, setPicker] = useState(null); // ท่าที่กำลังเลือกว่าจะใส่โปรแกรมไหน
 
   const auth = useAuth();
@@ -134,23 +139,6 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1>💪 FitPedia <span className="brand-sub">คลังท่าออกกำลังกาย</span></h1>
-        <p className="subtitle">
-          ค้นหาท่าออกกำลังกายพร้อมภาพเคลื่อนไหว กล้ามเนื้อเป้าหมาย และวิธีทำทีละขั้น
-        </p>
-        <div className="nav">
-          <button className={"nav-btn" + (view === "browse" ? " nav-active" : "")} onClick={() => setView("browse")}>
-            🔎 ค้นหา
-          </button>
-          <button className={"nav-btn" + (view === "categories" ? " nav-active" : "")} onClick={() => setView("categories")}>
-            🗂️ หมวดหมู่
-          </button>
-          <button className={"nav-btn" + (view === "stretch" ? " nav-active" : "")} onClick={() => setView("stretch")}>
-            🧘 ยืดเหยียด
-          </button>
-          <button className={"nav-btn" + (view === "program" ? " nav-active" : "")} onClick={() => setView("program")}>
-            📋 โปรแกรม ({programs.programCount})
-          </button>
-        </div>
         {auth.cloudEnabled && auth.user && (
           <div className="authbar">
             <span className="auth-email">☁️ {syncing ? "กำลังซิงค์…" : auth.displayName}</span>
@@ -256,7 +244,7 @@ export default function App() {
                 fav={fav.isFav(ex.id)}
                 inRoutine={programs.inAny(ex.id)}
                 onOpen={() => setSelected(ex)}
-                onToggleFav={() => fav.toggle(ex.id)}
+                onToggleFav={() => { const was = fav.isFav(ex.id); fav.toggle(ex.id); notify(was ? "เอาออกจากที่ชอบแล้ว" : "เพิ่มในที่ชอบแล้ว ♥"); }}
                 onToggleRoutine={() => setPicker(ex)}
               />
             ))}
@@ -275,7 +263,7 @@ export default function App() {
           thaiName={thaiName(selected.name)}
           onClose={() => setSelected(null)}
           isFav={fav.isFav(selected.id)}
-          onToggleFav={() => fav.toggle(selected.id)}
+          onToggleFav={() => { const was = fav.isFav(selected.id); fav.toggle(selected.id); notify(was ? "เอาออกจากที่ชอบแล้ว" : "เพิ่มในที่ชอบแล้ว ♥"); }}
           inRoutine={programs.inAny(selected.id)}
           onToggleRoutine={() => setPicker(selected)}
           allExercises={exercises}
@@ -290,11 +278,43 @@ export default function App() {
           thaiName={thaiName(picker.name)}
           programs={programs}
           onClose={() => setPicker(null)}
+          notify={notify}
         />
       )}
 
+      {toast && <Toast key={toast.t} msg={toast.msg} onDone={() => setToast(null)} />}
+
+      <nav className="bottom-nav">
+        {[
+          { k: "browse", icon: "🔎", label: "ค้นหา" },
+          { k: "categories", icon: "🗂️", label: "หมวดหมู่" },
+          { k: "stretch", icon: "🧘", label: "ยืด" },
+          { k: "program", icon: "📋", label: "โปรแกรม" },
+        ].map((t) => (
+          <button
+            key={t.k}
+            className={"bn-item" + (view === t.k ? " bn-active" : "")}
+            onClick={() => setView(t.k)}
+          >
+            <span className="bn-icon">{t.icon}</span>
+            <span className="bn-label">{t.label}</span>
+            {t.k === "program" && programs.programCount > 0 && (
+              <span className="bn-badge">{programs.programCount}</span>
+            )}
+          </button>
+        ))}
+      </nav>
     </div>
   );
+}
+
+// Toast แจ้งเตือนสั้นๆ เด้งขึ้นเหนือ bottom nav แล้วหายเอง
+function Toast({ msg, onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1900);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return <div className="toast" role="status">{msg}</div>;
 }
 
 function LoginGate({ auth }) {
@@ -356,7 +376,7 @@ function LoginGate({ auth }) {
   );
 }
 
-function ProgramPicker({ ex, thaiName, programs, onClose }) {
+function ProgramPicker({ ex, thaiName, programs, onClose, notify }) {
   const handleCreate = () => {
     const name = window.prompt("ตั้งชื่อโปรแกรมใหม่ (เช่น Upper Body วันจันทร์)", "");
     if (name && name.trim()) programs.createWith(name.trim(), ex.id);
@@ -374,7 +394,7 @@ function ProgramPicker({ ex, thaiName, programs, onClose }) {
               <button
                 key={p.id}
                 className={"picker-row" + (checked ? " picker-on" : "")}
-                onClick={() => programs.toggleIn(p.id, ex.id)}
+                onClick={() => { programs.toggleIn(p.id, ex.id); notify && notify(checked ? `เอาออกจาก '${p.name}'` : `เพิ่มเข้า '${p.name}' แล้ว ✓`); }}
               >
                 <span className="picker-check">{checked ? "✓" : "＋"}</span>
                 <span className="picker-name">{p.name}</span>
@@ -411,8 +431,8 @@ function Card({ ex, thai, fav, inRoutine, onOpen, onToggleFav, onToggleRoutine }
         </button>
       </div>
       <div className="card-body">
-        <h3>{ex.name}</h3>
-        {thai && <p className="th-name">{thai}</p>}
+        <h3>{thai || ex.name}</h3>
+        {thai && <p className="en-name">{ex.name}</p>}
         <div className="tags">
           <span className="tag">{thBody(ex.body_part)}</span>
           <span className="tag tag-muted">{thEquip(ex.equipment)}</span>
@@ -533,8 +553,8 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
         <div className="modal-content">
           <div className="modal-title">
             <div>
-              <h2>{ex.name}</h2>
-              {thaiName && <p className="th-name">{thaiName}</p>}
+              <h2>{thaiName || ex.name}</h2>
+              {thaiName && <p className="en-name">{ex.name}</p>}
             </div>
             <div className="modal-actions">
               <button
@@ -595,7 +615,12 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
   );
 }
 
-// แสดงตัวจับเวลานับถอยหลังสำหรับท่ายืดค้าง (static/PNF)
+// สั่นเครื่อง (ถ้ารองรับ) — ใช้ feedback เวลาใกล้หมด/หมดเวลา
+function buzz(pattern) {
+  try { navigator.vibrate && navigator.vibrate(pattern); } catch { /* ไม่รองรับ */ }
+}
+
+// ตัวจับเวลานับถอยหลังแบบวงแหวน — มี haptic + เปลี่ยนสีช่วงท้าย
 function StretchTimer({ seconds, autoStart = false, onDone, compact = false }) {
   const [left, setLeft] = useState(seconds);
   const [running, setRunning] = useState(autoStart);
@@ -609,19 +634,39 @@ function StretchTimer({ seconds, autoStart = false, onDone, compact = false }) {
     if (!running) return;
     if (left <= 0) {
       setRunning(false);
+      buzz([90, 50, 90]); // หมดเวลา
       onDone && onDone();
       return;
     }
+    if (left <= 3) buzz(60); // นับถอยหลัง 3 วิสุดท้าย
     const t = setTimeout(() => setLeft((l) => l - 1), 1000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, left]);
 
-  const pct = seconds > 0 ? (left / seconds) * 100 : 0;
+  const R = 52;
+  const C = 2 * Math.PI * R;
+  const frac = seconds > 0 ? left / seconds : 0;
+  const ending = left <= 3 && left > 0;
+  const color = ending ? "#ff5a3c" : "#2ec5d3";
+  const size = compact ? 116 : 140;
+
   return (
     <div className={"timer" + (compact ? " timer-compact" : "")}>
-      <div className="timer-num">{left}<span className="timer-unit">วิ</span></div>
-      <div className="timer-bar"><div className="timer-fill" style={{ width: pct + "%" }} /></div>
+      <div className="ring-wrap" style={{ width: size, height: size }}>
+        <svg className="ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r={R} fill="none" stroke="#1a1d24" strokeWidth="9" />
+          <circle
+            cx="60" cy="60" r={R} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
+            strokeDasharray={C} strokeDashoffset={C * (1 - frac)}
+            transform="rotate(-90 60 60)"
+            style={{ transition: "stroke-dashoffset 1s linear, stroke 0.3s" }}
+          />
+        </svg>
+        <div className="ring-num" style={{ color }}>
+          {left}<span className="ring-unit">วิ</span>
+        </div>
+      </div>
       <div className="timer-ctrl">
         <button onClick={() => setRunning((r) => !r)}>{running ? "⏸ หยุด" : (left <= 0 ? "↻ เริ่มใหม่" : "▶ เริ่ม")}</button>
         <button onClick={() => { setLeft(seconds); setRunning(false); }}>รีเซ็ต</button>
@@ -781,8 +826,8 @@ function StretchView({ exercises, thaiName, onOpen }) {
                 <img className="thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} />
               </div>
               <div className="card-body">
-                <h3>{ex.name}</h3>
-                <p className="th-name">{thaiName(ex.name)}</p>
+                <h3>{thaiName(ex.name) || ex.name}</h3>
+                <p className="en-name">{ex.name}</p>
                 <div className="tags"><span className="tag">{thBody(ex.body_part)}</span></div>
               </div>
             </div>
