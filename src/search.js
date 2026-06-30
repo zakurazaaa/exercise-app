@@ -19,6 +19,7 @@ const ALIASES = {
   pecs: "pectorals",
   abs: "abs",
   "good mornings": "good morning",
+  "ยืด": "stretch",
   "hip thrusts": "hip thrust",
   bss: "single leg split squat",
 };

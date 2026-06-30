@@ -6,6 +6,7 @@ import { useAuth } from "./auth";
 import { thBody, thEquip, thMuscle, thMuscles, thName } from "./th-dict";
 import { getTips, categorize, CATEGORIES } from "./tips";
 import { getSetup } from "./setup";
+import { getStretch, isStretch, stretchType } from "./stretch";
 import { matchExercise } from "./search";
 import "./App.css";
 
@@ -142,6 +143,9 @@ export default function App() {
           <button className={"nav-btn" + (view === "categories" ? " nav-active" : "")} onClick={() => setView("categories")}>
             🗂️ หมวดหมู่
           </button>
+          <button className={"nav-btn" + (view === "stretch" ? " nav-active" : "")} onClick={() => setView("stretch")}>
+            🧘 ยืดเหยียด
+          </button>
           <button className={"nav-btn" + (view === "program" ? " nav-active" : "")} onClick={() => setView("program")}>
             📋 โปรแกรม ({programs.programCount})
           </button>
@@ -167,6 +171,10 @@ export default function App() {
             </button>
           ))}
         </div>
+      )}
+
+      {status === "ready" && view === "stretch" && (
+        <StretchView exercises={exercises} thaiName={thaiName} onOpen={setSelected} />
       )}
 
       {status === "ready" && view === "program" && (
@@ -256,6 +264,9 @@ export default function App() {
           onToggleFav={() => fav.toggle(selected.id)}
           inRoutine={programs.inAny(selected.id)}
           onToggleRoutine={() => setPicker(selected)}
+          allExercises={exercises}
+          thaiOf={thaiName}
+          onOpenExercise={setSelected}
         />
       )}
 
@@ -477,7 +488,8 @@ function ProgramView({ items, thaiName, programs, onOpen }) {
   );
 }
 
-function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onToggleFav, inRoutine, onToggleRoutine }) {
+function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onToggleFav, inRoutine, onToggleRoutine, allExercises, thaiOf, onOpenExercise }) {
+  const stretch = getStretch(ex);
   const enSteps = detail?.instruction_steps?.en || [];
   const gif = detail?.gif_url;
   const secondary = detail?.secondary_muscles || [];
@@ -536,7 +548,7 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(secondary).join(", ")}</p>
           )}
 
-          <SetupBox ex={ex} />
+          {stretch ? <StretchBox stretch={stretch} /> : <SetupBox ex={ex} />}
 
           <div className="steps-head">
             <h4>วิธีทำ</h4>
@@ -558,8 +570,90 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             {steps.map((s, i) => (<li key={i}>{s}</li>))}
           </ol>
 
-          <TipsBox ex={ex} />
+          {!stretch && (
+            <StretchSuggest ex={ex} all={allExercises} thaiOf={thaiOf} onOpen={onOpenExercise} />
+          )}
+          {!stretch && <TipsBox ex={ex} />}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// แสดงตัวจับเวลานับถอยหลังสำหรับท่ายืดค้าง (static/PNF)
+function StretchTimer({ seconds, autoStart = false, onDone, compact = false }) {
+  const [left, setLeft] = useState(seconds);
+  const [running, setRunning] = useState(autoStart);
+
+  useEffect(() => {
+    setLeft(seconds);
+    setRunning(autoStart);
+  }, [seconds, autoStart]);
+
+  useEffect(() => {
+    if (!running) return;
+    if (left <= 0) {
+      setRunning(false);
+      onDone && onDone();
+      return;
+    }
+    const t = setTimeout(() => setLeft((l) => l - 1), 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, left]);
+
+  const pct = seconds > 0 ? (left / seconds) * 100 : 0;
+  return (
+    <div className={"timer" + (compact ? " timer-compact" : "")}>
+      <div className="timer-num">{left}<span className="timer-unit">วิ</span></div>
+      <div className="timer-bar"><div className="timer-fill" style={{ width: pct + "%" }} /></div>
+      <div className="timer-ctrl">
+        <button onClick={() => setRunning((r) => !r)}>{running ? "⏸ หยุด" : (left <= 0 ? "↻ เริ่มใหม่" : "▶ เริ่ม")}</button>
+        <button onClick={() => { setLeft(seconds); setRunning(false); }}>รีเซ็ต</button>
+      </div>
+    </div>
+  );
+}
+
+function StretchBox({ stretch }) {
+  return (
+    <div className="stretch-box">
+      <h4>🧘 วิธียืด & เวลาค้าง <span className="stretch-type">{stretch.typeLabel}</span></h4>
+      <div className="stretch-dose">
+        <span className="dose-chip">{stretch.timingEmoji} {stretch.timingLabel}</span>
+        <span className="dose-chip">⏳ {stretch.hold}</span>
+        <span className="dose-chip">🔁 {stretch.sets}</span>
+      </div>
+      {stretch.holdSeconds > 0 && <StretchTimer seconds={stretch.holdSeconds} compact />}
+      <ul className="stretch-list">
+        {stretch.cues.map((c, i) => (<li key={i}>{c}</li>))}
+      </ul>
+      <p className="translate-note">
+        * ยืดมัดหลัก ≥2–3 วัน/สัปดาห์ (ทุกวันยิ่งดี) — การยืดช่วยเรื่องความยืดหยุ่น ไม่ใช่เพิ่มกล้าม/แรงหรือกันบาดเจ็บ
+      </p>
+    </div>
+  );
+}
+
+// แนะนำท่ายืดสำหรับกล้ามที่เพิ่งเล่น (ส่วนของร่างกายเดียวกัน)
+function StretchSuggest({ ex, all, thaiOf, onOpen }) {
+  const picks = useMemo(() => {
+    if (!all) return [];
+    return all
+      .filter((s) => isStretch(s) && s.id !== ex.id && s.body_part === ex.body_part && stretchType(s) !== "dynamic")
+      .slice(0, 4);
+  }, [all, ex]);
+  if (picks.length === 0) return null;
+  return (
+    <div className="suggest">
+      <h4>🧘 ยืดกล้ามมัดนี้หลังเล่น</h4>
+      <div className="suggest-row">
+        {picks.map((s) => (
+          <button key={s.id} className="suggest-chip" onClick={() => onOpen && onOpen(s)}>
+            <img src={mediaUrl(s.image)} alt={s.name} onError={onImgError} />
+            <span>{thaiOf ? thaiOf(s.name) : s.name}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -592,6 +686,123 @@ function TipsBox({ ex }) {
       <p className="translate-note">
         * คำแนะนำทั่วไปตามหมวดการเคลื่อนไหว — หากเพิ่งเริ่มหรือมีอาการบาดเจ็บ ควรปรึกษาผู้เชี่ยวชาญ
       </p>
+    </div>
+  );
+}
+
+// หน้า "ยืดเหยียด" — เลือกโหมด (อุ่นเครื่อง/คูลดาวน์) + ส่วนของร่างกาย แล้วยืดทีละท่าพร้อมจับเวลา
+function StretchView({ exercises, thaiName, onOpen }) {
+  const [mode, setMode] = useState("static"); // static = คูลดาวน์ | dynamic = อุ่นเครื่อง
+  const [areas, setAreas] = useState([]); // body_part[]; ว่าง = ทั้งตัว
+  const [player, setPlayer] = useState(null);
+
+  const all = useMemo(() => exercises.filter(isStretch), [exercises]);
+  const areaOpts = useMemo(() => Array.from(new Set(all.map((e) => e.body_part))), [all]);
+  const pool = useMemo(
+    () =>
+      all.filter((e) => {
+        const t = stretchType(e);
+        const matchMode = mode === "dynamic" ? t === "dynamic" : t !== "dynamic";
+        const matchArea = areas.length === 0 || areas.includes(e.body_part);
+        return matchMode && matchArea;
+      }),
+    [all, mode, areas]
+  );
+
+  const toggleArea = (a) =>
+    setAreas((xs) => (xs.includes(a) ? xs.filter((x) => x !== a) : [...xs, a]));
+
+  if (player)
+    return <StretchPlayer list={player} thaiName={thaiName} onClose={() => setPlayer(null)} />;
+
+  return (
+    <div className="stretch-view">
+      <div className="stretch-modes">
+        <button className={"mode-btn" + (mode === "dynamic" ? " mode-on" : "")} onClick={() => setMode("dynamic")}>
+          🔥 อุ่นเครื่อง (Dynamic)
+        </button>
+        <button className={"mode-btn" + (mode === "static" ? " mode-on" : "")} onClick={() => setMode("static")}>
+          🧊 คูลดาวน์ / ยืดหยุ่น (Static)
+        </button>
+      </div>
+      <p className="stretch-blurb">
+        {mode === "dynamic"
+          ? "ยืดแบบเคลื่อนไหวก่อนออกกำลัง — ทำช้าๆ เพิ่มช่วงทีละนิด ไม่ค้าง"
+          : "ยืดค้างหลังออกกำลัง / เพิ่มความยืดหยุ่น — ค้าง 15–30 วิ ต่อท่า ทำ ≥2–3 วัน/สัปดาห์"}
+      </p>
+      <div className="area-chips">
+        <button className={"area-chip" + (areas.length === 0 ? " area-on" : "")} onClick={() => setAreas([])}>
+          ทั้งตัว
+        </button>
+        {areaOpts.map((a) => (
+          <button key={a} className={"area-chip" + (areas.includes(a) ? " area-on" : "")} onClick={() => toggleArea(a)}>
+            {thBody(a)}
+          </button>
+        ))}
+      </div>
+      <div className="stretch-actions">
+        <p className="count">{pool.length} ท่า</p>
+        {pool.length > 0 && (
+          <button className="play-btn" onClick={() => setPlayer(pool)}>▶️ เริ่มยืดทีละท่า</button>
+        )}
+      </div>
+      {pool.length === 0 ? (
+        <p className="state">ไม่มีท่ายืดในเงื่อนไขนี้ — ลองเลือกส่วนอื่นหรือสลับโหมด</p>
+      ) : (
+        <div className="grid">
+          {pool.map((ex) => (
+            <div key={ex.id} className="card" onClick={() => onOpen(ex)}>
+              <div className="thumb-wrap">
+                <img className="thumb" src={mediaUrl(ex.image)} alt={ex.name} loading="lazy" onError={onImgError} />
+              </div>
+              <div className="card-body">
+                <h3>{ex.name}</h3>
+                <p className="th-name">{thaiName(ex.name)}</p>
+                <div className="tags"><span className="tag">{thBody(ex.body_part)}</span></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// เครื่องเล่นยืดทีละท่า — จับเวลานับถอยหลังอัตโนมัติ แล้วไปท่าถัดไป
+function StretchPlayer({ list, thaiName, onClose }) {
+  const [i, setI] = useState(0);
+  const ex = list[i];
+  const info = getStretch(ex);
+  const isLast = i >= list.length - 1;
+  const next = () => setI((x) => Math.min(x + 1, list.length - 1));
+  const prev = () => setI((x) => Math.max(x - 1, 0));
+
+  return (
+    <div className="player">
+      <div className="player-top">
+        <span className="player-prog">ท่า {i + 1} / {list.length}</span>
+        <button className="close" onClick={onClose}>✕</button>
+      </div>
+      <img className="player-img" src={mediaUrl(ex.image)} alt={ex.name} onError={onImgError} />
+      <h2 className="player-name">{thaiName(ex.name)}</h2>
+      <p className="player-en">{ex.name}</p>
+      <div className="stretch-dose">
+        <span className="dose-chip">{info.timingEmoji} {info.typeLabel}</span>
+        <span className="dose-chip">⏳ {info.hold}</span>
+      </div>
+      {info.holdSeconds > 0 ? (
+        <StretchTimer key={ex.id} seconds={info.holdSeconds} autoStart onDone={() => !isLast && next()} />
+      ) : (
+        <p className="player-reps">ทำ {info.hold} แล้วกด “ถัดไป”</p>
+      )}
+      <div className="player-nav">
+        <button onClick={prev} disabled={i === 0}>← ก่อนหน้า</button>
+        {isLast ? (
+          <button className="play-btn" onClick={onClose}>✓ เสร็จสิ้น</button>
+        ) : (
+          <button className="play-btn" onClick={next}>ถัดไป →</button>
+        )}
+      </div>
     </div>
   );
 }
