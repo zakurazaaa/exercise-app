@@ -6,11 +6,11 @@ const REPO_BASE =
 
 export const DATA_URL = `${REPO_BASE}/data/exercises.json`;
 
-// image / gif_url ใน dataset เป็น path แบบ relative (เช่น "videos/0001-x.gif")
-export function mediaUrl(relativePath) {
-  if (!relativePath) return "";
-  if (relativePath.startsWith("http")) return relativePath;
-  return `${REPO_BASE}/${relativePath}`;
+// รูปท่ามาจาก free-exercise-db (public domain) — index เก็บ URL รูปเต็มไว้แล้ว
+// (ExerciseDB เดิมย้ายสื่อไปหลัง API เสียเงิน จึงเปลี่ยนมาใช้แหล่งฟรีที่ถูกกฎหมาย)
+// ท่าที่ไม่มีรูปตรงกันจะเป็น null -> การ์ดจะโชว์รูปสำรอง
+export function mediaUrl(url) {
+  return url || "";
 }
 
 // โหลด index เบาที่ฝังในแอป (เสิร์ฟที่ BASE_URL)

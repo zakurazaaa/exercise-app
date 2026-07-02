@@ -38,8 +38,8 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
-            // ดาต้าหลัก + รูป/GIF จาก GitHub raw → cache ไว้ใช้ออฟไลน์
-            urlPattern: ({ url }) => url.hostname === 'raw.githubusercontent.com',
+            // ดาต้าหลัก (GitHub raw) + GIF จาก CDN ExerciseDB → cache ไว้ใช้ออฟไลน์
+            urlPattern: ({ url }) => url.hostname === 'raw.githubusercontent.com' || url.hostname === 'exercisedb.dev',
             handler: 'CacheFirst',
             options: {
               cacheName: 'exercise-data',
