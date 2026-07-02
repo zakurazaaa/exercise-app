@@ -424,6 +424,7 @@ body {
   background: #eef0f3;
   display: block;
 }
+.gif-map { background: #171a21; } /* muscle map พื้นมืด — ไม่ให้มีแถบขาวข้างรูป */
 .picker {
   background: var(--card);
   border-radius: 16px;

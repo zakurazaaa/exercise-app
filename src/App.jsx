@@ -653,7 +653,7 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="close" onClick={onClose}>✕</button>
-        <img className="gif" src={mediaUrl(ex.img) || muscleMapUri(ex)} data-ph={muscleMapUri(ex)} alt={ex.name} onError={onImgError} />
+        <img className={"gif" + (ex.img ? "" : " gif-map")} src={mediaUrl(ex.img) || muscleMapUri(ex, secondary)} data-ph={muscleMapUri(ex, secondary)} alt={ex.name} onError={onImgError} />
         <div className="modal-content">
           <div className="modal-title">
             <div>
