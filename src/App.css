@@ -425,6 +425,15 @@ body {
   display: block;
 }
 .gif-map { background: #171a21; } /* muscle map พื้นมืด — ไม่ให้มีแถบขาวข้างรูป */
+
+/* ปุ่มดูวิดีโอบน YouTube */
+.yt-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 12px 0 4px; padding: 11px 14px;
+  background: #ff0033; color: #fff; text-decoration: none;
+  border-radius: 10px; font-size: 15px; font-weight: 700;
+}
+.yt-btn:hover { filter: brightness(1.08); }
 .picker {
   background: var(--card);
   border-radius: 16px;

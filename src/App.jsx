@@ -687,6 +687,15 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(secondary).join(", ")}</p>
           )}
 
+          <a
+            className="yt-btn"
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + " exercise how to")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ▶ ดูวิธีเล่น (วิดีโอบน YouTube)
+          </a>
+
           {!stretch && (
             <LogPanel ex={ex} userId={userId} unit={unit} setUnit={setUnit} notify={notify} />
           )}
