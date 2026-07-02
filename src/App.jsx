@@ -26,6 +26,32 @@ function onImgError(e) {
   }
 }
 
+// รูปท่า: ถ้ามี 2 เฟรม (free-exercise-db 0.jpg/1.jpg) จะสลับให้เป็นภาพเคลื่อนไหว 2 จังหวะ
+// ถ้าไม่มีรูปจริง → muscle map; ถ้าโหลดพลาด → onImgError (muscle map/placeholder)
+function ExImg({ ex, className = "", secondary, onClick }) {
+  const a = ex.img, b = ex.img2;
+  const [f, setF] = useState(0);
+  useEffect(() => {
+    if (!a || !b) return;
+    const pre = new Image();
+    pre.src = b; // preload เฟรม 2 กันกระพริบ
+    const t = setInterval(() => setF((x) => (x ? 0 : 1)), 1100);
+    return () => clearInterval(t);
+  }, [a, b]);
+  const src = a ? (b && f ? b : a) : muscleMapUri(ex, secondary);
+  return (
+    <img
+      className={className}
+      src={src}
+      data-ph={muscleMapUri(ex, secondary)}
+      alt={ex.name}
+      loading="lazy"
+      onError={onImgError}
+      onClick={onClick}
+    />
+  );
+}
+
 let namesPromise = null;
 function loadNames() {
   if (!namesPromise) {
@@ -519,7 +545,7 @@ function Card({ ex, thai, fav, inRoutine, onOpen, onToggleFav, onToggleRoutine }
   return (
     <div className="card" onClick={onOpen}>
       <div className="thumb-wrap">
-        <img className="thumb" src={mediaUrl(ex.img) || muscleMapUri(ex)} data-ph={muscleMapUri(ex)} alt={ex.name} loading="lazy" onError={onImgError} />
+        <ExImg ex={ex} className="thumb" />
         <button
           className={"rt-btn" + (inRoutine ? " rt-on" : "")}
           title={inRoutine ? "อยู่ในโปรแกรมแล้ว — แตะเพื่อเลือกโปรแกรม" : "เลือกโปรแกรมที่จะเพิ่ม"}
@@ -607,7 +633,7 @@ function ProgramView({ items, thaiName, programs, onOpen }) {
               {items.map((ex, i) => (
                 <li key={ex.id} className="program-item">
                   <span className="program-no">{i + 1}</span>
-                  <img className="program-thumb" src={mediaUrl(ex.img) || muscleMapUri(ex)} data-ph={muscleMapUri(ex)} alt={ex.name} loading="lazy" onError={onImgError} onClick={() => onOpen(ex)} />
+                  <ExImg ex={ex} className="program-thumb" onClick={() => onOpen(ex)} />
                   <div className="program-info" onClick={() => onOpen(ex)}>
                     <strong>{thaiName(ex.name)}</strong>
                     <span className="program-en">{ex.name}</span>
@@ -653,7 +679,7 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="close" onClick={onClose}>✕</button>
-        <img className={"gif" + (ex.img ? "" : " gif-map")} src={mediaUrl(ex.img) || muscleMapUri(ex, secondary)} data-ph={muscleMapUri(ex, secondary)} alt={ex.name} onError={onImgError} />
+        <ExImg ex={ex} className={"gif" + (ex.img ? "" : " gif-map")} secondary={secondary} />
         <div className="modal-content">
           <div className="modal-title">
             <div>
@@ -824,7 +850,7 @@ function StretchSuggest({ ex, all, thaiOf, onOpen }) {
       <div className="suggest-row">
         {picks.map((s) => (
           <button key={s.id} className="suggest-chip" onClick={() => onOpen && onOpen(s)}>
-            <img src={mediaUrl(s.img) || muscleMapUri(s)} data-ph={muscleMapUri(s)} alt={s.name} onError={onImgError} />
+            <ExImg ex={s} />
             <span>{thaiOf ? thaiOf(s.name) : s.name}</span>
           </button>
         ))}
@@ -942,7 +968,7 @@ function StretchView({ exercises, thaiName, onOpen, streak }) {
           {pool.map((ex) => (
             <div key={ex.id} className="card" onClick={() => onOpen(ex)}>
               <div className="thumb-wrap">
-                <img className="thumb" src={mediaUrl(ex.img) || muscleMapUri(ex)} data-ph={muscleMapUri(ex)} alt={ex.name} loading="lazy" onError={onImgError} />
+                <ExImg ex={ex} className="thumb" />
               </div>
               <div className="card-body">
                 <h3>{thaiName(ex.name) || ex.name}</h3>
@@ -984,7 +1010,7 @@ function StretchPlayer({ list, thaiName, streak, onClose }) {
         <span className="player-prog">ท่า {i + 1} / {list.length}</span>
         <button className="close" onClick={onClose}>✕</button>
       </div>
-      <img className="player-img" src={mediaUrl(ex.img) || muscleMapUri(ex)} data-ph={muscleMapUri(ex)} alt={ex.name} onError={onImgError} />
+      <ExImg ex={ex} className="player-img" />
       <h2 className="player-name">{thaiName(ex.name)}</h2>
       <p className="player-en">{ex.name}</p>
       <div className="stretch-dose">
