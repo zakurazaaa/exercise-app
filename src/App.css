@@ -866,3 +866,22 @@ body {
 .h-sets { flex: 1; }
 .h-vol { color: var(--muted); }
 .log-err { color: #ff6b6b; font-size: 12px; margin: 8px 0 0; }
+
+/* ---------- เซนเซอร์นับ rep (BLE) ---------- */
+.sensor-btn {
+  width: 100%; margin-bottom: 10px; padding: 10px;
+  background: #143036; border: 1px solid #2ec5d3; color: #7fe3ee;
+  border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.sensor-btn:hover { background: #184048; }
+.sensor-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 10px; padding: 8px 12px; border-radius: 10px;
+  background: #143026; border: 1px solid #2e8b57; font-size: 13px;
+}
+.sensor-row.on span { color: #7fe3a0; font-weight: 600; }
+.sensor-row button {
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+}
+.sensor-note { color: var(--muted); font-size: 12px; margin: 0 0 10px; line-height: 1.5; }

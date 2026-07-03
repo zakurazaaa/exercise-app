@@ -10,6 +10,7 @@ import { getStretch, isStretch, stretchType } from "./stretch";
 import { fetchLog, addSet, deleteSet, todayISO, epley1RM, totalVolume, computePR, groupByDate, stepFor, convertWeight } from "./log";
 import { matchExercise } from "./search";
 import { muscleMapUri } from "./muscle";
+import { useRepSensor } from "./sensor";
 import "./App.css";
 
 // รูปสำรองเมื่อไม่มีรูป/โหลดไม่ได้ — อีโมจิตามส่วนของร่างกาย (ลดความจำเจ)
@@ -29,26 +30,31 @@ function onImgError(e) {
 // รูปท่า: ถ้ามี 2 เฟรม (free-exercise-db 0.jpg/1.jpg) จะสลับให้เป็นภาพเคลื่อนไหว 2 จังหวะ
 // ถ้าไม่มีรูปจริง → muscle map; ถ้าโหลดพลาด → onImgError (muscle map/placeholder)
 function ExImg({ ex, className = "", secondary, onClick }) {
+  // GIF เต็ม (public/media/{id}.gif) ใช้ "เฉพาะตอนรัน local dev" เท่านั้น — ไฟล์ gitignore + ตัว build/deploy ไม่แตะ
+  const localGif = import.meta.env.DEV ? `${import.meta.env.BASE_URL}media/${ex.id}.gif` : null;
   const a = ex.img, b = ex.img2;
+  // ลำดับ fallback: gif(โลคัล) -> photo(2 เฟรมฟรี) -> map(muscle map)
+  const [stage, setStage] = useState(localGif ? "gif" : a ? "photo" : "map");
   const [f, setF] = useState(0);
   useEffect(() => {
-    if (!a || !b) return;
+    setStage(localGif ? "gif" : a ? "photo" : "map");
+    setF(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ex.id]);
+  useEffect(() => {
+    if (stage !== "photo" || !a || !b) return;
     const pre = new Image();
-    pre.src = b; // preload เฟรม 2 กันกระพริบ
+    pre.src = b;
     const t = setInterval(() => setF((x) => (x ? 0 : 1)), 1100);
     return () => clearInterval(t);
-  }, [a, b]);
-  const src = a ? (b && f ? b : a) : muscleMapUri(ex, secondary);
+  }, [stage, a, b]);
+  let src;
+  if (stage === "gif") src = localGif;
+  else if (stage === "photo" && a) src = b && f ? b : a;
+  else src = muscleMapUri(ex, secondary);
+  const onErr = () => setStage((s) => (s === "gif" ? (a ? "photo" : "map") : "map"));
   return (
-    <img
-      className={className}
-      src={src}
-      data-ph={muscleMapUri(ex, secondary)}
-      alt={ex.name}
-      loading="lazy"
-      onError={onImgError}
-      onClick={onClick}
-    />
+    <img className={className} src={src} alt={ex.name} loading="lazy" onError={onErr} onClick={onClick} />
   );
 }
 
@@ -1127,6 +1133,8 @@ function LogPanel({ ex, userId, unit, setUnit, notify }) {
   const [saving, setSaving] = useState(false);
   const [rest, setRest] = useState(0);
   const [showHist, setShowHist] = useState(false);
+  // เซนเซอร์นับ rep (BLE) — ค่าที่นับได้จะเติมช่อง "ครั้ง" อัตโนมัติ
+  const sensor = useRepSensor((v) => setReps(String(v)));
   const prefilled = useRef(false);
 
   useEffect(() => {
@@ -1184,6 +1192,7 @@ function LogPanel({ ex, userId, unit, setUnit, notify }) {
         else notify("บันทึกเซ็ตแล้ว ✓");
         setRest(90);
       } else notify("บันทึกแล้ว ✓");
+      if (sensor.connected) sensor.reset(); // รีเซ็ตตัวนับสำหรับเซ็ตถัดไป
     } catch (e) {
       notify("บันทึกไม่สำเร็จ — สร้าง table แล้วหรือยัง?");
       setErr(e.message || String(e));
@@ -1239,6 +1248,20 @@ function LogPanel({ ex, userId, unit, setUnit, notify }) {
           )}
 
           {rest > 0 && <RestTimer key={rest} seconds={rest} onClose={() => setRest(0)} />}
+
+          {!isCardio && (
+            sensor.connected ? (
+              <div className="sensor-row on">
+                <span>📡 เซนเซอร์: {sensor.deviceName} — นับให้อัตโนมัติ</span>
+                <button onClick={sensor.disconnect}>ตัดการเชื่อมต่อ</button>
+              </div>
+            ) : sensor.supported ? (
+              <button className="sensor-btn" onClick={sensor.connect}>🔗 เชื่อมเซนเซอร์นับ rep</button>
+            ) : (
+              <p className="sensor-note">📡 เชื่อมเซนเซอร์นับ rep ได้บน Chrome/Android — บน iPhone เปิดผ่านแอป Bluefy</p>
+            )
+          )}
+          {sensor.error && <p className="log-err">⚠️ {sensor.error}</p>}
 
           <div className="log-form">
             {isCardio ? (
