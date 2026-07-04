@@ -13,9 +13,9 @@ export function mediaUrl(url) {
   return url || "";
 }
 
-// GIF ท่า — อยู่ใน src/assets/media/{id}.gif (Vite resolve เป็น URL ตอน build)
+// GIF ท่า — อยู่ใน public/media/{id}.gif (คัดลอกไป dist ตรง ๆ ใช้ BASE_URL รองรับ GitHub Pages)
 export function gifUrl(id) {
-  return new URL(`./assets/media/${id}.gif`, import.meta.url).href;
+  return `${import.meta.env.BASE_URL}media/${id}.gif`;
 }
 
 // โหลด index เบาที่ฝังในแอป (เสิร์ฟที่ BASE_URL)

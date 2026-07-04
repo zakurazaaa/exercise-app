@@ -30,7 +30,7 @@ function onImgError(e) {
 // รูปท่า: ถ้ามี 2 เฟรม (free-exercise-db 0.jpg/1.jpg) จะสลับให้เป็นภาพเคลื่อนไหว 2 จังหวะ
 // ถ้าไม่มีรูปจริง → muscle map; ถ้าโหลดพลาด → onImgError (muscle map/placeholder)
 function ExImg({ ex, className = "", secondary, onClick }) {
-  // GIF เต็มจาก src/assets/media/{id}.gif (fallback ไป photo/map ถ้าโหลดไม่ได้)
+  // GIF จาก public/media/{id}.gif — fallback ไป photo/map ถ้าโหลดไม่ได้
   const gifSrc = gifUrl(ex.id);
   const a = ex.img, b = ex.img2;
   // ลำดับ fallback: gif -> photo(2 เฟรมฟรี) -> map(muscle map)

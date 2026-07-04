@@ -38,6 +38,16 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
+            // GIF ท่า (public/media) — cache ตอนใช้งาน ไม่ precache ทั้งหมด (~120MB)
+            urlPattern: ({ url }) => url.pathname.includes('/media/') && url.pathname.endsWith('.gif'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'exercise-gifs',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // ดาต้าหลัก (GitHub raw) + GIF จาก CDN ExerciseDB → cache ไว้ใช้ออฟไลน์
             urlPattern: ({ url }) => url.hostname === 'raw.githubusercontent.com' || url.hostname === 'exercisedb.dev',
             handler: 'CacheFirst',
