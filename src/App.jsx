@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadIndex, loadDetailsMap, uniqueValues, mediaUrl } from "./data";
+import { loadIndex, loadDetailsMap, uniqueValues, mediaUrl, gifUrl } from "./data";
 import { translateSteps } from "./translate";
 import { useUserData } from "./store";
 import { useAuth } from "./auth";
@@ -30,14 +30,14 @@ function onImgError(e) {
 // รูปท่า: ถ้ามี 2 เฟรม (free-exercise-db 0.jpg/1.jpg) จะสลับให้เป็นภาพเคลื่อนไหว 2 จังหวะ
 // ถ้าไม่มีรูปจริง → muscle map; ถ้าโหลดพลาด → onImgError (muscle map/placeholder)
 function ExImg({ ex, className = "", secondary, onClick }) {
-  // GIF เต็ม (public/media/{id}.gif) ใช้ "เฉพาะตอนรัน local dev" เท่านั้น — ไฟล์ gitignore + ตัว build/deploy ไม่แตะ
-  const localGif = import.meta.env.DEV ? `${import.meta.env.BASE_URL}media/${ex.id}.gif` : null;
+  // GIF เต็มจาก src/assets/media/{id}.gif (fallback ไป photo/map ถ้าโหลดไม่ได้)
+  const gifSrc = gifUrl(ex.id);
   const a = ex.img, b = ex.img2;
-  // ลำดับ fallback: gif(โลคัล) -> photo(2 เฟรมฟรี) -> map(muscle map)
-  const [stage, setStage] = useState(localGif ? "gif" : a ? "photo" : "map");
+  // ลำดับ fallback: gif -> photo(2 เฟรมฟรี) -> map(muscle map)
+  const [stage, setStage] = useState("gif");
   const [f, setF] = useState(0);
   useEffect(() => {
-    setStage(localGif ? "gif" : a ? "photo" : "map");
+    setStage("gif");
     setF(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex.id]);
@@ -49,7 +49,7 @@ function ExImg({ ex, className = "", secondary, onClick }) {
     return () => clearInterval(t);
   }, [stage, a, b]);
   let src;
-  if (stage === "gif") src = localGif;
+  if (stage === "gif") src = gifSrc;
   else if (stage === "photo" && a) src = b && f ? b : a;
   else src = muscleMapUri(ex, secondary);
   const onErr = () => setStage((s) => (s === "gif" ? (a ? "photo" : "map") : "map"));

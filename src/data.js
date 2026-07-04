@@ -13,6 +13,11 @@ export function mediaUrl(url) {
   return url || "";
 }
 
+// GIF ท่า — อยู่ใน src/assets/media/{id}.gif (Vite resolve เป็น URL ตอน build)
+export function gifUrl(id) {
+  return new URL(`./assets/media/${id}.gif`, import.meta.url).href;
+}
+
 // โหลด index เบาที่ฝังในแอป (เสิร์ฟที่ BASE_URL)
 let indexCache = null;
 export async function loadIndex() {
