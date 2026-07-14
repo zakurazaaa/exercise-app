@@ -6,6 +6,10 @@ import { PATTERN, EX_OVERRIDE } from "./form-data";
 // คืน { effort:[], mistakes:[], endPosition, grip } หรือ null ถ้าไม่มีข้อมูล
 export function getForm(ex) {
   if (!ex) return null;
+  // คาร์ดิโอไม่ต้องมีกล่องฟอร์ม (ใช้คิวคาร์ดิโอในการตั้งเครื่องแทน)
+  const t = (ex.target || "").toLowerCase();
+  const bp = (ex.body_part || "").toLowerCase();
+  if (t === "cardiovascular system" || bp === "cardio") return null;
   const pat = PATTERN[classify(ex)];
   const ov = EX_OVERRIDE[ex.id];
   if (!pat && !ov) return null;

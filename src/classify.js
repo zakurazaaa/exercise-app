@@ -33,5 +33,10 @@ export function classify(ex) {
     return "abs";
   if (/chest press|bench press|incline press|decline press|chest/.test(n) || t === "pectorals")
     return "chestpress";
+  // route ท่าเฉพาะทางที่ชัดเจนเข้าหมวดที่ใกล้ (ก่อนตกไป generic)
+  if (/glute.?ham|femoral/.test(n)) return "legcurl";
+  if (/y-raise|y raise/.test(n)) return "reardelt";
+  if (/bradford|rocky press|push press|snatch|clean|jerk|skier/.test(n)) return "ohp";
+  if (/back lever|front lever|\bl-sit\b|l sit|human flag|planche|dragon flag/.test(n)) return "abs";
   return "generic";
 }
