@@ -867,6 +867,17 @@ body {
 .h-vol { color: var(--muted); }
 .log-err { color: #ff6b6b; font-size: 12px; margin: 8px 0 0; }
 
+/* ---------- ออกแรงที่ไหน / ข้อผิดพลาด (form) ---------- */
+.form-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.form-list li { font-size: 13.5px; line-height: 1.5; }
+.form-mistakes li::marker { color: #ff6b6b; }
+.form-end {
+  margin: 10px 0 0; padding: 8px 10px; border-radius: 8px;
+  background: rgba(255,159,10,0.10); border: 1px solid rgba(255,159,10,0.35);
+  font-size: 13px; line-height: 1.5; color: var(--text);
+}
+.form-grip { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+
 /* ---------- เซนเซอร์นับ rep (BLE) ---------- */
 .sensor-btn {
   width: 100%; margin-bottom: 10px; padding: 10px;

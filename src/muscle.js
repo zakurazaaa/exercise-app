@@ -62,13 +62,15 @@ function emojiUri(e) {
   return "data:image/svg+xml," + encodeURIComponent(svg);
 }
 
-// คืน data-URI SVG (secondary = array ชื่อกล้ามเสริม, ไม่ใส่ก็ได้)
-export function muscleMapUri(ex, secondary) {
+// คืน data-URI SVG (secondary = array ชื่อกล้ามเสริม, primaryOverride = array กล้ามหลักที่แก้แล้ว)
+export function muscleMapUri(ex, secondary, primaryOverride) {
   const t = (ex?.target || "").toLowerCase();
   const bp = (ex?.body_part || "").toLowerCase();
   if (t === "cardiovascular system" || bp === "cardio") return emojiUri("🏃");
 
-  const targetSet = new Set(MAP[t] || []);
+  const primaries = primaryOverride && primaryOverride.length ? primaryOverride : [t];
+  const targetSet = new Set();
+  for (const p of primaries) for (const r of MAP[(p || "").toLowerCase()] || []) targetSet.add(r);
   const secSet = new Set();
   for (const m of secondary || []) for (const r of MAP[(m || "").toLowerCase()] || []) if (!targetSet.has(r)) secSet.add(r);
 

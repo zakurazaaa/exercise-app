@@ -10,7 +10,12 @@ import { getStretch, isStretch, stretchType } from "./stretch";
 import { fetchLog, addSet, deleteSet, todayISO, epley1RM, totalVolume, computePR, groupByDate, stepFor, convertWeight } from "./log";
 import { matchExercise } from "./search";
 import { muscleMapUri } from "./muscle";
+import { getForm } from "./form";
+import { getMuscles } from "./muscle-fix";
 import { useRepSensor } from "./sensor";
+
+// ปิดฟีเจอร์เซนเซอร์นับ rep ไว้ก่อน (ยังไม่แสดงในแอป) — ตั้ง true เพื่อเปิดคืน
+const SENSOR_UI = false;
 import "./App.css";
 
 // รูปสำรองเมื่อไม่มีรูป/โหลดไม่ได้ — อีโมจิตามส่วนของร่างกาย (ลดความจำเจ)
@@ -29,7 +34,7 @@ function onImgError(e) {
 
 // รูปท่า: ถ้ามี 2 เฟรม (free-exercise-db 0.jpg/1.jpg) จะสลับให้เป็นภาพเคลื่อนไหว 2 จังหวะ
 // ถ้าไม่มีรูปจริง → muscle map; ถ้าโหลดพลาด → onImgError (muscle map/placeholder)
-function ExImg({ ex, className = "", secondary, onClick }) {
+function ExImg({ ex, className = "", secondary, primary, onClick }) {
   // GIF จาก public/media/{id}.gif — fallback ไป photo/map ถ้าโหลดไม่ได้
   const gifSrc = gifUrl(ex.id);
   const a = ex.img, b = ex.img2;
@@ -51,7 +56,7 @@ function ExImg({ ex, className = "", secondary, onClick }) {
   let src;
   if (stage === "gif") src = gifSrc;
   else if (stage === "photo" && a) src = b && f ? b : a;
-  else src = muscleMapUri(ex, secondary);
+  else src = muscleMapUri(ex, secondary, primary);
   const onErr = () => setStage((s) => (s === "gif" ? (a ? "photo" : "map") : "map"));
   return (
     <img className={className} src={src} alt={ex.name} loading="lazy" onError={onErr} onClick={onClick} />
@@ -664,6 +669,7 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
   // ทำให้ identity คงที่ — กัน useEffect แปลข้างล่างรันซ้ำ/ยกเลิกตัวเองจน "กำลังแปล" ค้าง
   const enSteps = useMemo(() => detail?.instruction_steps?.en || [], [detail]);
   const secondary = detail?.secondary_muscles || [];
+  const muscles = getMuscles(ex, secondary); // แก้กล้ามเนื้อให้ถูก (verified)
   const [lang, setLang] = useState("th");
   const [thSteps, setThSteps] = useState(null);
   const [tStatus, setTStatus] = useState("idle");
@@ -685,7 +691,7 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="close" onClick={onClose}>✕</button>
-        <ExImg ex={ex} className={"gif" + (ex.img ? "" : " gif-map")} secondary={secondary} />
+        <ExImg ex={ex} className={"gif" + (ex.img ? "" : " gif-map")} secondary={muscles.secondary} primary={muscles.primary} />
         <div className="modal-content">
           <div className="modal-title">
             <div>
@@ -715,23 +721,15 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             <span className="tag">{thEquip(ex.equipment)}</span>
             <span className="tag tag-accent">เป้าหมาย: {thMuscle(ex.target)}</span>
           </div>
-          {secondary.length > 0 && (
-            <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(secondary).join(", ")}</p>
+          {muscles.secondary.length > 0 && (
+            <p className="muscles">กล้ามเนื้อเสริม: {thMuscles(muscles.secondary).join(", ")}</p>
           )}
-
-          <a
-            className="yt-btn"
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + " exercise how to")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            ▶ ดูวิธีเล่น (วิดีโอบน YouTube)
-          </a>
 
           {!stretch && (
             <LogPanel ex={ex} userId={userId} unit={unit} setUnit={setUnit} notify={notify} />
           )}
           {stretch ? <StretchBox stretch={stretch} /> : <SetupBox ex={ex} />}
+          {!stretch && <FormBox ex={ex} />}
 
           <div className="steps-head">
             <h4>วิธีทำ</h4>
@@ -753,9 +751,6 @@ function ExerciseModal({ ex, detail, detailsReady, thaiName, onClose, isFav, onT
             {steps.map((s, i) => (<li key={i}>{s}</li>))}
           </ol>
 
-          {!stretch && (
-            <StretchSuggest ex={ex} all={allExercises} thaiOf={thaiOf} onOpen={onOpenExercise} />
-          )}
           {!stretch && <TipsBox ex={ex} />}
         </div>
       </div>
@@ -891,6 +886,33 @@ function SetupBox({ ex }) {
         * ตำแหน่งเบาะอ้างกับจุดบนร่างกาย เพราะแต่ละยี่ห้อต่างกัน — ดูสติกเกอร์/คู่มือบนเครื่องประกอบ
       </p>
     </Collapsible>
+  );
+}
+
+function FormBox({ ex }) {
+  const form = getForm(ex);
+  if (!form) return null;
+  return (
+    <>
+      {form.effort.length > 0 && (
+        <Collapsible icon="💪" title="ออกแรงที่ไหน" accent="#ff9f0a" defaultOpen>
+          <ul className="form-list">
+            {form.effort.map((s, i) => (<li key={i}>{s}</li>))}
+          </ul>
+          {form.endPosition && (
+            <p className="form-end">🎯 จุดสิ้นสุดท่า: {form.endPosition}</p>
+          )}
+          {form.grip && <p className="form-grip">✋ {form.grip}</p>}
+        </Collapsible>
+      )}
+      {form.mistakes.length > 0 && (
+        <Collapsible icon="⚠️" title="ข้อผิดพลาดที่พบบ่อย" accent="#ff6b6b">
+          <ul className="form-list form-mistakes">
+            {form.mistakes.map((s, i) => (<li key={i}>{s}</li>))}
+          </ul>
+        </Collapsible>
+      )}
+    </>
   );
 }
 
@@ -1249,7 +1271,7 @@ function LogPanel({ ex, userId, unit, setUnit, notify }) {
 
           {rest > 0 && <RestTimer key={rest} seconds={rest} onClose={() => setRest(0)} />}
 
-          {!isCardio && (
+          {SENSOR_UI && !isCardio && (
             sensor.connected ? (
               <div className="sensor-row on">
                 <span>📡 เซนเซอร์: {sensor.deviceName} — นับให้อัตโนมัติ</span>
@@ -1261,7 +1283,7 @@ function LogPanel({ ex, userId, unit, setUnit, notify }) {
               <p className="sensor-note">📡 เชื่อมเซนเซอร์นับ rep ได้บน Chrome/Android — บน iPhone เปิดผ่านแอป Bluefy</p>
             )
           )}
-          {sensor.error && <p className="log-err">⚠️ {sensor.error}</p>}
+          {SENSOR_UI && sensor.error && <p className="log-err">⚠️ {sensor.error}</p>}
 
           <div className="log-form">
             {isCardio ? (
