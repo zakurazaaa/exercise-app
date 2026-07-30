@@ -407,9 +407,14 @@ body {
   position: relative;
 }
 .close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  /* sticky = ปักหมุดมุมขวาบนตลอดเวลาที่เลื่อน modal
+     (เดิมเป็น absolute ในกล่องที่เลื่อน → ปุ่มเลื่อนหลุดหาย + บน iOS ตำแหน่งกดเพี้ยนหลังเลื่อน momentum) */
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+  display: block;
+  /* ชิดขวา (margin-left auto) + ลอยทับมุมบนของรูป (margin-bottom ติดลบดึงเนื้อหาถัดไปขึ้นมาชิดบน) */
+  margin: 10px 10px -44px auto;
   width: 34px;
   height: 34px;
   border-radius: 50%;
