@@ -24,7 +24,13 @@ body {
 .app {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 20px 16px 96px; /* เผื่อที่ให้ bottom nav */
+  /* บวก safe-area กันหัวข้อทับแถบสถานะ (notch/Dynamic Island) ตอนเป็น PWA
+     บน = 20px + inset บน, ซ้าย/ขวาเผื่อจอแนวนอน, ล่าง 96px เผื่อ bottom nav */
+  padding:
+    calc(20px + env(safe-area-inset-top))
+    calc(16px + env(safe-area-inset-right))
+    96px
+    calc(16px + env(safe-area-inset-left));
 }
 
 .header h1 {
